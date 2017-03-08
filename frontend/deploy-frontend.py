@@ -250,12 +250,15 @@ def main():
                                     Frontend.address, cred_mysql_db_password))
 
         # Register frontend at the storage
-        exec_sys_call_check("ssh -p {0} {1}@{2} "
-                            "\"echo \\\"`{3}.pub`\\\" >> {4}\""
+        with open("{}.pub".format(Frontend.rel_cred_store_key), "r") as pub_key_f:
+            pub_key = pub_key_f.read().rstrip()
+
+        exec_sys_call_check("ssh -p {0} {1}@{2} \"printf \\\"{4}\\n\\\" >> {5}\""
                             .format(Storage.ssh_port, Storage.ssh_root_user, Storage.address,
                                     Frontend.abs_cred_store_key,
                                     os.path.join(Storage.acc_chroot, Storage.CHROOT_HOME_DIR,
-                                                 Storage.SSH_DIR, Storage.AUTH_KEYS_FILE)))
+                                                 Storage.SSH_DIR, pub_key,
+                                                 Storage.AUTH_KEYS_FILE)))
 
         # Everything should be okay now.
 
