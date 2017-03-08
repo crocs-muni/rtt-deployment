@@ -101,9 +101,9 @@ def main():
                             acc_codes=[0, 9])
         rtt_admin_grp_gid = grp.getgrnam(Frontend.RTT_ADMIN_GROUP).gr_gid
         # Adding group for users of rtt
-        exec_sys_call_check("groupadd {}".format(Frontend.RTT_ADMIN_GROUP),
+        exec_sys_call_check("groupadd {}".format(Frontend.RTT_USER_GROUP),
                             acc_codes=[0, 9])
-        rtt_user_grp_gid = grp.getgrnam(Frontend.RTT_ADMIN_GROUP).gr_gid
+        rtt_user_grp_gid = grp.getgrnam(Frontend.RTT_USER_GROUP).gr_gid
 
         # Installing debootstrap used for ssh jail
         install_pkg("debootstrap")
