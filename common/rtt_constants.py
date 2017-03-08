@@ -16,5 +16,8 @@ class Storage(object):
     SSH_DIR = ".ssh"
     AUTH_KEYS_DIR = "authorized_keys"
 
+
 class Frontend(object):
     CHROOT_RTT_FILES = "/rtt-files"
+    RTT_ADMIN_GROUP = "rtt-admin"
+    RTT_USER_GROUP = "rtt-user"

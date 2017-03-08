@@ -4,6 +4,7 @@ import sys
 import subprocess
 from common.clilogging import *
 from common.rtt_deploy_utils import *
+from common.rtt_constants import *
 
 ################################
 # Global variables declaration #
@@ -35,10 +36,10 @@ def main():
         deploy_cfg.read(deploy_cfg_file)
         if len(deploy_cfg.sections()) == 0:
             raise FileNotFoundError("can't read: {}".format(deploy_cfg_file))
-        
-        db_server_address = get_no_empty(deploy_cfg, "Database", "IPv4-Address")
-        mysql_port = get_no_empty(deploy_cfg, "Database", "MySQL-port")
-        mysql_cfg_path = get_no_empty(deploy_cfg, "Database", "MySQL-config-file")
+
+        Database.address = get_no_empty(deploy_cfg, "Database", "IPv4-Address")
+        Database.mysql_port = get_no_empty(deploy_cfg, "Database", "MySQL-port")
+        Database.mysql_cfg_path = get_no_empty(deploy_cfg, "Database", "MySQL-config-file")
     except BaseException as e:
         print_error("Configuration file: {}".format(e))
         sys.exit(1)
@@ -49,9 +50,9 @@ def main():
 
         # Configuring environment
         exec_sys_call_check("mysql_secure_installation")
-        set_cfg_value("bind-address", db_server_address, mysql_cfg_path)
-        set_cfg_value("port", mysql_port, mysql_cfg_path)
-        comment_cfg_line("skip-external-locking", mysql_cfg_path)
+        set_cfg_value("bind-address", Database.address, Database.mysql_cfg_path)
+        set_cfg_value("port", Database.mysql_port, Database.mysql_cfg_path)
+        comment_cfg_line("skip-external-locking", Database.mysql_cfg_path)
 
         # Restarting mysql service
         exec_sys_call_check("/etc/init.d/mysql restart")
