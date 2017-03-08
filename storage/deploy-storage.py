@@ -196,7 +196,7 @@ def main():
                      "/var/tmp/clean-cache.lock {} {} >> {} 2>&1\n\n" \
                      .format(Storage.rtt_file_clean_cache,
                              Storage.rtt_file_store_ini,
-                             Storage.rtt_file_clean_cache_logfile)
+                             Storage.rtt_file_clean_cache_log)
 
         cron_tmp_file = open(cron_tmp_filename, "w")
         exec_sys_call_check("crontab -l", stdout=cron_tmp_file, acc_codes=[0, 1])
