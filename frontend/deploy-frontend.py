@@ -47,7 +47,7 @@ def main():
         Storage.ssh_root_user = get_no_empty(deploy_cfg, "Storage", "SSH-Root-User")
         Storage.acc_chroot = get_no_empty(deploy_cfg, "Storage", "Storage-Chroot")
         Storage.storage_user = get_no_empty(deploy_cfg, "Storage", "Storage-User")
-        Storage.ssh_port = get_no_empty(deploy_cfg, "Storage-server", "SSH-port")
+        Storage.ssh_port = get_no_empty(deploy_cfg, "Storage", "SSH-port")
 
     except BaseException as e:
         print_error("Configuration file: {}".format(e))
