@@ -21,7 +21,7 @@ def main():
             raise FileNotFoundError("can't read: {}".format(deploy_cfg_file))
 
         Database.address = get_no_empty(deploy_cfg, "Database", "IPv4-Address")
-        Database.ssh_user = get_no_empty(deploy_cfg, "Database", "SSH-Root-User")
+        Database.ssh_root_user = get_no_empty(deploy_cfg, "Database", "SSH-Root-User")
         Database.ssh_port = get_no_empty(deploy_cfg, "Database", "SSH-Port")
         Database.mysql_port = get_no_empty(deploy_cfg, "Database", "MySql-Port")
 
@@ -64,7 +64,7 @@ def main():
     Storage.ssh_dir = \
         os.path.join(Storage.home_dir, Storage.SSH_DIR)
     Storage.authorized_keys_file = \
-        os.path.join(Storage.ssh_dir, Storage.AUTH_KEYS_DIR)
+        os.path.join(Storage.ssh_dir, Storage.AUTH_KEYS_FILE)
     Storage.data_dir = \
         os.path.join(Storage.home_dir, Storage.CHROOT_DATA_DIR)
     Storage.config_dir = \
@@ -78,7 +78,7 @@ def main():
     Storage.rtt_file_clean_cache_log = \
         os.path.join(Storage.rtt_dir, Storage.CLEAN_CACHE_LOG)
     Storage.rtt_common_dir = \
-        os.path.join(Storage.rtt_dir, Storage.COMMON_CODE_DIR)
+        os.path.join(Storage.rtt_dir, Storage.COMMON_FILES_DIR)
     Storage.rtt_credentials_dir \
         = os.path.join(Storage.rtt_dir, Storage.CREDENTIALS_DIR)
     Storage.rtt_file_mysql_cred = \
@@ -103,10 +103,11 @@ def main():
                              "\tAllowTcpForwarding no\n" \
                              "\tPermitTunnel no\n" \
                              "\tX11Forwarding no\n" \
-                             "\tAuthorizedKeysFile {1}{2}/{3}/{4}\n" \
+                             "\tAuthorizedKeysFile {2}\n" \
                              "\tPasswordAuthentication no\n" \
-                             "\n".format(Storage.acc_name, Storage.acc_chroot, Storage.CHROOT_HOME_DIR,
-                                         Storage.SSH_DIR, Storage.AUTH_KEYS_DIR)
+                             "\n".format(Storage.acc_name, Storage.acc_chroot,
+                                         os.path.join(Storage.acc_chroot, Storage.CHROOT_HOME_DIR,
+                                                      Storage.SSH_DIR, Storage.AUTH_KEYS_FILE))
 
         with open(Storage.ssh_config, "a") as f:
             f.write(sshd_config_append)
@@ -164,11 +165,10 @@ def main():
         # Creating credentials file for database access
         create_file(Storage.rtt_file_mysql_cred, 0o660,
                     grp=Storage.RTT_ADMIN_GROUP)
-        cred_db_username = Storage.MYSQL_STORAGE_USER
         cred_db_password = get_rnd_pwd()
         cred_cfg = configparser.ConfigParser()
         cred_cfg.add_section("Credentials")
-        cred_cfg.set("Credentials", "Username", cred_db_username)
+        cred_cfg.set("Credentials", "Username", Storage.MYSQL_STORAGE_USER)
         cred_cfg.set("Credentials", "Password", cred_db_password)
         cred_cfg_file = open(Storage.rtt_file_mysql_cred, "w")
         cred_cfg.write(cred_cfg_file)
@@ -185,8 +185,8 @@ def main():
                             "\"mysql -u root -p -e "
                             "\\\"GRANT SELECT ON {3}.* TO '{4}'@'{5}' "
                             "IDENTIFIED BY '{6}'\\\"\""
-                            .format(Database.ssh_port, Database.ssh_user, Database.address,
-                                    Database.MYSQL_DB_NAME, cred_db_username,
+                            .format(Database.ssh_port, Database.ssh_root_user, Database.address,
+                                    Database.MYSQL_DB_NAME, Storage.MYSQL_STORAGE_USER,
                                     Storage.address, cred_db_password))
 
         # Adding new job to cron - cache cleaning script
