@@ -58,7 +58,7 @@ def main():
         exec_sys_call_check("/etc/init.d/mysql restart")
 
         exec_sys_call_check("mysql -u root -p",
-                            stdin=open("db-files/create-rtt-tables.sql", "r"))
+                            stdin=open(CommonConst.CREATE_TABLES_SCRIPT, "r"))
 
     except BaseException as e:
         print_error("{}. Fix error and run the script again.".format(e))
