@@ -195,8 +195,12 @@ def main():
                             acc_codes=[0, 9])
 
         # Installing needed packages inside jail
-        install_pkg("python3-setuptools")
+        # Bypassing some debian bullshit here...
+        exec_sys_call_check("wget https://bootstrap.pypa.io/get-pip.py")
+        exec_sys_call_check("python3 get-pip.py")
+        os.remove("get-pip.py")
         install_pkg("python3-pip")
+        install_pkg("python3-setuptools")
         install_pkg("libmysqlclient-dev")
         install_pkg("build-essential")
         install_pkg("libssl-dev")
