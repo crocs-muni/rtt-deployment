@@ -151,6 +151,8 @@ def main():
 
         exec_sys_call_check("ssh-keygen -q -b 2048 -t rsa -N {} -f {}"
                             .format(cred_store_ssh_key_password, Frontend.abs_cred_store_key))
+        chmod_chown(Frontend.abs_cred_store_key, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
+        chmod_chown(Frontend.abs_cred_store_key + ".pub", 0o660, grp=Frontend.RTT_ADMIN_GROUP)
 
         create_file(Frontend.abs_config_ini, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
         frontend_ini_cfg = configparser.ConfigParser()
