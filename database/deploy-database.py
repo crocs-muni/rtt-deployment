@@ -45,7 +45,6 @@ def main():
         sys.exit(1)
 
     try:
-        update_env()
         install_pkg("mysql-server")
 
         # Configuring environment

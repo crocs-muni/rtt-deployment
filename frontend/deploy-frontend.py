@@ -34,8 +34,6 @@ def main():
 
         Frontend.address = get_no_empty(deploy_cfg, "Frontend", "IPv4-Address")
         Frontend.rtt_users_chroot = get_no_empty(deploy_cfg, "Frontend", "RTT-Users-Chroot")
-        Frontend.chroot_deb_v = get_no_empty(deploy_cfg, "Frontend", "Chroot-debian-version")
-        Frontend.fstab_file = get_no_empty(deploy_cfg, "Frontend", "Fstab-file")
         Frontend.ssh_config = get_no_empty(deploy_cfg, "Frontend", "SSH-Config")
 
         Database.address = get_no_empty(deploy_cfg, "Database", "IPv4-Address")
@@ -109,9 +107,9 @@ def main():
         # Building chroot jail for rtt users
         create_dir(Frontend.rtt_users_chroot, 0o775, grp=Frontend.RTT_ADMIN_GROUP)
         # chroot jail should have sticky bit set!
-        exec_sys_call_check("debootstrap {} {}"
-                            .format(Frontend.chroot_deb_v, Frontend.rtt_users_chroot))
-        with open(Frontend.fstab_file, "a") as f:
+        exec_sys_call_check("debootstrap {} {}".format(Frontend.CHROOT_DEBIAN_VERSION,
+                                                       Frontend.rtt_users_chroot))
+        with open(Frontend.FSTAB_FILE, "a") as f:
             f.write("proc {} proc defaults 0 0\n"
                     .format(os.path.join(Frontend.rtt_users_chroot, "proc")))
             f.write("sysfs {} sysfs defaults 0 0\n"
@@ -197,16 +195,16 @@ def main():
         # Installing needed packages inside jail
         install_pkg("python3")
         install_pkg("python3-dev")
-        install_pkg("python3-pip")
         install_pkg("python3-setuptools")
         install_pkg("libmysqlclient-dev")
         install_pkg("build-essential")
         install_pkg("libssl-dev")
         install_pkg("libffi-dev")
-        install_pkg("pyinstaller", pkg_mngr="pip3")
-        install_pkg("mysqlclient", pkg_mngr="pip3")
         install_pkg("python3-cryptography")
         install_pkg("python3-paramiko")
+        install_pkg("python3-pip")
+        install_pkg("pyinstaller", pkg_mngr="pip3")
+        install_pkg("mysqlclient", pkg_mngr="pip3")
 
         os.chdir(Frontend.CHROOT_RTT_FILES)
         exec_sys_call_check("pyinstaller -F {}".format(Frontend.SUBMIT_EXPERIMENT_SCRIPT))

@@ -49,4 +49,6 @@ class Frontend(object):
     SSH_CREDENTIALS_KEY = "storage-ssh-key"
     SSH_DIR = ".ssh"
     AUTH_KEYS_FILE = "authorized_keys"
+    FSTAB_FILE = "/etc/fstab"
+    CHROOT_DEBIAN_VERSION = "jessie"
 

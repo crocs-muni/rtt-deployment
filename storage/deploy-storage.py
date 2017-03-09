@@ -68,7 +68,7 @@ def main():
     Storage.data_dir = \
         os.path.join(Storage.home_dir, Storage.CHROOT_DATA_DIR)
     Storage.config_dir = \
-        os.path.join(Storage.home_dir, Storage.CHROOT_DATA_DIR)
+        os.path.join(Storage.home_dir, Storage.CHROOT_CONF_DIR)
 
     # Paths related to rtt files on server
     Storage.rtt_file_store_ini = \
@@ -137,6 +137,9 @@ def main():
         chmod_chown(Storage.rtt_file_clean_cache, 0o770,
                     grp=Storage.RTT_ADMIN_GROUP)
 
+        create_file(Storage.CLEAN_CACHE_LOG, 0o770,
+                    grp=Storage.RTT_ADMIN_GROUP)
+
         # Copying common scripts into directory
         # with rtt files
         if os.path.exists(Storage.rtt_common_dir):
@@ -175,7 +178,6 @@ def main():
         cred_cfg_file.close()
 
         # Installing required packages
-        update_env()
         install_pkg("libmysqlclient-dev")
         install_pkg("python3-pip")
         install_pkg("mysqlclient", pkg_mngr="pip3")
