@@ -103,10 +103,10 @@ def main():
                              "\tAllowTcpForwarding no\n" \
                              "\tPermitTunnel no\n" \
                              "\tX11Forwarding no\n" \
-                             "\tAuthorizedKeysFile {2}\n" \
+                             "\tAuthorizedKeysFile {1}{2}\n" \
                              "\tPasswordAuthentication no\n" \
                              "\n".format(Storage.acc_name, Storage.acc_chroot,
-                                         os.path.join(Storage.acc_chroot, Storage.CHROOT_HOME_DIR,
+                                         os.path.join(Storage.CHROOT_HOME_DIR,
                                                       Storage.SSH_DIR, Storage.AUTH_KEYS_FILE))
 
         with open(Storage.ssh_config, "a") as f:

@@ -28,7 +28,8 @@ class Storage(object):
     CLEAN_CACHE_LOG = "clean-cache.log"
     COMMON_FILES_DIR = "common"
     CREDENTIALS_DIR = "credentials"
-    MYSQL_STORAGE_USER = "rtt_storage"
+    # ONLY DURING DEVELOPMENT!!!
+    MYSQL_STORAGE_USER = "rtt-storage"
     MYSQL_CREDENTIALS_FILE = "db-mysql-cred.ini"
 
 

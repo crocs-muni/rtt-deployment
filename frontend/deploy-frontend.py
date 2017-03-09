@@ -195,31 +195,28 @@ def main():
                             acc_codes=[0, 9])
 
         # Installing needed packages inside jail
-        # Bypassing some debian bullshit here...
-        exec_sys_call_check("wget https://bootstrap.pypa.io/get-pip.py")
-        exec_sys_call_check("python3 get-pip.py")
-        os.remove("get-pip.py")
+        install_pkg("python3")
+        install_pkg("python3-dev")
         install_pkg("python3-pip")
         install_pkg("python3-setuptools")
         install_pkg("libmysqlclient-dev")
         install_pkg("build-essential")
         install_pkg("libssl-dev")
         install_pkg("libffi-dev")
-        install_pkg("python-dev")
         install_pkg("pyinstaller", pkg_mngr="pip3")
         install_pkg("mysqlclient", pkg_mngr="pip3")
-        install_pkg("cryptography", pkg_mngr="pip3")
-        install_pkg("paramiko", pkg_mngr="pip3")
+        install_pkg("python3-cryptography")
+        install_pkg("python3-paramiko")
 
         os.chdir(Frontend.CHROOT_RTT_FILES)
         exec_sys_call_check("pyinstaller -F {}".format(Frontend.SUBMIT_EXPERIMENT_SCRIPT))
         shutil.move("dist/{}".format(Frontend.submit_exp_base_name),
                     Frontend.SUBMIT_EXPERIMENT_BINARY)
         chmod_chown(Frontend.SUBMIT_EXPERIMENT_BINARY, 0o2775, grp=Frontend.RTT_ADMIN_GROUP)
-        shutil.rmtree("dist")
-        shutil.rmtree("build")
-        shutil.rmtree("__pycache__")
-        shutil.rmtree("{}.spec".format(Frontend.submit_exp_base_name))
+        # shutil.rmtree("dist")
+        # shutil.rmtree("build")
+        # shutil.rmtree("__pycache__")
+        # os.remove("{}.spec".format(Frontend.submit_exp_base_name))
 
         # Exiting chroot jail
         os.fchdir(real_root)
@@ -233,10 +230,9 @@ def main():
                              "\tAllowTcpForwarding no\n" \
                              "\tPermitTunnel no\n" \
                              "\tX11Forwarding no\n" \
-                             "\tAuthorizedKeysFile {2}\n" \
+                             "\tAuthorizedKeysFile {1}{2}\n" \
                              "\n".format(Frontend.RTT_USER_GROUP, Frontend.rtt_users_chroot,
-                                         os.path.join(Frontend.rtt_users_chroot,
-                                                      Frontend.CHROOT_RTT_USERS_HOME, "%u",
+                                         os.path.join(Frontend.CHROOT_RTT_USERS_HOME, "%u",
                                                       Frontend.SSH_DIR, Frontend.AUTH_KEYS_FILE))
         with open(Frontend.ssh_config, "a") as f:
             f.write(sshd_config_append)
@@ -246,7 +242,7 @@ def main():
         # Register frontend at MySQL server
         exec_sys_call_check("ssh -p {0} {1}@{2} "
                             "\"mysql -u root -p -e "
-                            "\\\"GRANT SELECT ON {3}.* TO '{4}'@'{5}' "
+                            "\\\"GRANT INSERT ON {3}.* TO '{4}'@'{5}' "
                             "IDENTIFIED BY '{6}'\\\"\""
                             .format(Database.ssh_port, Database.ssh_root_user, Database.address,
                                     Database.MYSQL_DB_NAME, Frontend.MYSQL_FRONTEND_USER,
@@ -256,11 +252,11 @@ def main():
         with open("{}.pub".format(Frontend.rel_cred_store_key), "r") as pub_key_f:
             pub_key = pub_key_f.read().rstrip()
 
-        exec_sys_call_check("ssh -p {0} {1}@{2} \"printf \\\"{4}\\n\\\" >> {5}\""
+        exec_sys_call_check("ssh -p {0} {1}@{2} \"printf \\\"{3}\\n\\\" >> {4}{5}\""
                             .format(Storage.ssh_port, Storage.ssh_root_user, Storage.address,
-                                    Frontend.abs_cred_store_key,
-                                    os.path.join(Storage.acc_chroot, Storage.CHROOT_HOME_DIR,
-                                                 Storage.SSH_DIR, pub_key,
+                                    pub_key, Storage.acc_chroot,
+                                    os.path.join(Storage.CHROOT_HOME_DIR,
+                                                 Storage.SSH_DIR,
                                                  Storage.AUTH_KEYS_FILE)))
 
         # Everything should be okay now.
