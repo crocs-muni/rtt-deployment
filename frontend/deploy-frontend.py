@@ -213,10 +213,10 @@ def main():
         shutil.move("dist/{}".format(Frontend.submit_exp_base_name),
                     Frontend.SUBMIT_EXPERIMENT_BINARY)
         chmod_chown(Frontend.SUBMIT_EXPERIMENT_BINARY, 0o2775, grp=Frontend.RTT_ADMIN_GROUP)
-        # shutil.rmtree("dist")
-        # shutil.rmtree("build")
-        # shutil.rmtree("__pycache__")
-        # os.remove("{}.spec".format(Frontend.submit_exp_base_name))
+        shutil.rmtree("dist")
+        shutil.rmtree("build")
+        shutil.rmtree("__pycache__")
+        os.remove("{}.spec".format(Frontend.submit_exp_base_name))
 
         # Exiting chroot jail
         os.fchdir(real_root)
@@ -249,7 +249,7 @@ def main():
                                     Frontend.address, cred_mysql_db_password))
 
         # Register frontend at the storage
-        with open("{}.pub".format(Frontend.rel_cred_store_key), "r") as pub_key_f:
+        with open("{}.pub".format(Frontend.abs_cred_store_key), "r") as pub_key_f:
             pub_key = pub_key_f.read().rstrip()
 
         exec_sys_call_check("ssh -p {0} {1}@{2} \"printf \\\"{3}\\n\\\" >> {4}{5}\""
