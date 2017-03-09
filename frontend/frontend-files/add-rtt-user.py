@@ -2,14 +2,27 @@
 
 import sys
 import re
+import os
 from pwd import getpwnam
+from common.clilogging import *
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
+
+frontend_ini_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+                                 Frontend.FRONT_CONFIG_FILE)
 
 try:
     if len(sys.argv) != 2:
         print("Usage: ./add-rtt-user.py <username>")
         sys.exit(0)
+        
+    frontend_ini = configparser.ConfigParser()
+    try:
+        frontend_ini.read(frontend_ini_file)
+        Frontend.rtt_users_chroot = get_no_empty(frontend_ini, "Frontend", "RTT-Users-Chroot")
+    except BaseException as e:
+        print_error("Configuration file: {}".format(e))
+        sys.exit(1)
 
     check_name_reg = re.compile(r'^[a-zA-Z0-9._-]+$')
     username = sys.argv[1]
@@ -25,7 +38,7 @@ try:
     # Create user and user directories in chroot
     real_root = os.open("/", os.O_RDONLY)
     # Change this to dynamic value based on config.
-    os.chroot("/rtt-users-chroot")
+    os.chroot(Frontend.rtt_users_chroot)
     exec_sys_call_check("useradd -d {} -g {} -u {} -s /bin/bash {}"
                         .format(os.path.join(Frontend.CHROOT_RTT_USERS_HOME, username),
                                 Frontend.RTT_USER_GROUP, uid, username))
