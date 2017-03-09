@@ -93,8 +93,6 @@ def main():
         os.path.join(Frontend.rel_cred_dir, Frontend.SSH_CREDENTIALS_KEY)
 
     try:
-        update_env()
-
         # Adding rtt-admin group that is intended to manage
         # directories and files related to rtt without root access
         exec_sys_call_check("groupadd {}".format(Frontend.RTT_ADMIN_GROUP),
@@ -170,7 +168,7 @@ def main():
         frontend_ini_cfg.set("Storage", "Config-directory",
                              os.path.join(Storage.CHROOT_HOME_DIR, Storage.CHROOT_CONF_DIR))
         frontend_ini_cfg.set("Storage", "Credentials-file", Frontend.rel_cred_store_ini)
-        with open(Frontend.abs_cred_store_ini, "w") as f:
+        with open(Frontend.abs_config_ini, "w") as f:
             frontend_ini_cfg.write(f)
 
         shutil.copy(CommonConst.FRONTEND_SUBMIT_EXPERIMENT_SCRIPT,
@@ -197,7 +195,6 @@ def main():
                             acc_codes=[0, 9])
 
         # Installing needed packages inside jail
-        update_env()
         install_pkg("python3-setuptools")
         install_pkg("python3-pip")
         install_pkg("libmysqlclient-dev")
