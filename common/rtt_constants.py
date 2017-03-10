@@ -5,9 +5,9 @@
 class CommonConst(object):
     COMMON_FILES_DIR = "../common"
     CREATE_TABLES_SCRIPT = "db-files/create-rtt-tables.sql"
-    STORAGE_CLEAN_CACHE = "storage-files/clean-cache.py"
-    FRONTEND_SUBMIT_EXPERIMENT_SCRIPT = "frontend-files/submit-experiment.py"
-    FRONTEND_ADD_USER_SCRIPT = "frontend-files/add-rtt-user.py"
+    STORAGE_CLEAN_CACHE = "storage-files/clean_cache.py"
+    FRONTEND_SUBMIT_EXPERIMENT_SCRIPT = "frontend-files/submit_experiment.py"
+    FRONTEND_ADD_USER_SCRIPT = "frontend-files/add_rtt_user.py"
 
 
 class Database(object):
@@ -24,7 +24,7 @@ class Storage(object):
     SSH_DIR = ".ssh"
     AUTH_KEYS_FILE = "authorized_keys"
     STORE_CONFIG_FILE = "storage.ini"
-    CLEAN_CACHE_SCRIPT = "clean-cache.py"
+    CLEAN_CACHE_SCRIPT = "clean_cache.py"
     CLEAN_CACHE_LOG = "clean-cache.log"
     COMMON_FILES_DIR = "common"
     CREDENTIALS_DIR = "credentials"
@@ -38,8 +38,8 @@ class Frontend(object):
     CHROOT_RTT_FILES = "/rtt-files"
     CHROOT_RTT_USERS_HOME = "/home"
     FRONT_CONFIG_FILE = "frontend.ini"
-    ADD_USER_SCRIPT = "add-rtt-user.py"
-    SUBMIT_EXPERIMENT_SCRIPT = "submit-experiment.py"
+    ADD_USER_SCRIPT = "add_rtt_user.py"
+    SUBMIT_EXPERIMENT_SCRIPT = "submit_experiment.py"
     SUBMIT_EXPERIMENT_BINARY = "submit-experiment"
     CREDENTIALS_DIR = "credentials"
     COMMON_FILES_DIR = "common"
