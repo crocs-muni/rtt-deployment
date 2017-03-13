@@ -106,9 +106,11 @@ def register_db_user(server_acc, server_address, server_port,
         if len(username) == 0:
             username = db_def_user
 
-        password = getpass("Password: ")
+        password = getpass("Password (empty for none): ")
+        if len(password) > 0:
+            password = "-p" + password
 
-        command = "mysql -u {0} -p{1} -e " \
+        command = "mysql -u {0} {1} -e " \
                   "\"GRANT {2} ON {3}.* TO '{4}'@'{5}'" \
                   " IDENTIFIED BY '{6}'\""\
             .format(username, password, reg_rights, db_name,

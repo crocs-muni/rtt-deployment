@@ -166,6 +166,7 @@ def main():
         frontend_ini_cfg.set("Storage", "Config-directory",
                              os.path.join(Storage.CHROOT_HOME_DIR, Storage.CHROOT_CONF_DIR))
         frontend_ini_cfg.set("Storage", "Credentials-file", Frontend.rel_cred_store_ini)
+        frontend_ini_cfg.set("Frontend", "RTT-Users-Chroot", Frontend.rtt_users_chroot)
         with open(Frontend.abs_config_ini, "w") as f:
             frontend_ini_cfg.write(f)
 
@@ -174,7 +175,7 @@ def main():
         chmod_chown(Frontend.abs_submit_exp_script, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
 
         shutil.copy(CommonConst.FRONTEND_ADD_USER_SCRIPT, Frontend.abs_add_user_script)
-        chmod_chown(Frontend.abs_add_user_script, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
+        chmod_chown(Frontend.abs_add_user_script, 0o770, grp=Frontend.RTT_ADMIN_GROUP)
 
         if os.path.exists(Frontend.abs_common_files):
             shutil.rmtree(Frontend.abs_common_files)
@@ -198,8 +199,6 @@ def main():
         install_pkg("python3-setuptools")
         install_pkg("libmysqlclient-dev")
         install_pkg("build-essential")
-        install_pkg("libssl-dev")
-        install_pkg("libffi-dev")
         install_pkg("python3-cryptography")
         install_pkg("python3-paramiko")
         install_pkg("python3-pip")
@@ -237,6 +236,17 @@ def main():
             
         exec_sys_call_check("service sshd restart")
 
+        install_pkg("python3-cryptography")
+        install_pkg("python3-paramiko")
+        from common.rtt_registration import register_db_user
+        from common.rtt_registration import add_authorized_key_to_server
+
+        register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
+                         Frontend.MYSQL_FRONTEND_USER, cred_mysql_db_password, Frontend.address,
+                         Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
+                         priv_insert=True)
+
+        """
         # Register frontend at MySQL server
         exec_sys_call_check("ssh -p {0} {1}@{2} "
                             "\"mysql -u root -p -e "
@@ -245,18 +255,25 @@ def main():
                             .format(Database.ssh_port, Database.ssh_root_user, Database.address,
                                     Database.MYSQL_DB_NAME, Frontend.MYSQL_FRONTEND_USER,
                                     Frontend.address, cred_mysql_db_password))
+        """
 
         # Register frontend at the storage
         with open("{}.pub".format(Frontend.abs_cred_store_key), "r") as pub_key_f:
             pub_key = pub_key_f.read().rstrip()
 
+        add_authorized_key_to_server(Storage.ssh_root_user, Storage.address, Storage.ssh_port, pub_key,
+                                     "{}{}".format(Storage.acc_chroot,
+                                                   os.path.join(Storage.CHROOT_HOME_DIR,
+                                                                Storage.SSH_DIR,
+                                                                Storage.AUTH_KEYS_FILE)))
+        """
         exec_sys_call_check("ssh -p {0} {1}@{2} \"printf \\\"{3}\\n\\\" >> {4}{5}\""
                             .format(Storage.ssh_port, Storage.ssh_root_user, Storage.address,
                                     pub_key, Storage.acc_chroot,
                                     os.path.join(Storage.CHROOT_HOME_DIR,
                                                  Storage.SSH_DIR,
                                                  Storage.AUTH_KEYS_FILE)))
-
+        """
         # Everything should be okay now.
 
     except BaseException as e:

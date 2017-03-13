@@ -29,10 +29,10 @@ try:
     if check_name_reg.match(username) is None:
         raise BaseException("username can contain only characters a-z A-Z 0-9 . _ -")
 
+    chroot_user_home = os.path.join(Frontend.CHROOT_RTT_USERS_HOME, username)
     # Create user on main system
     exec_sys_call_check("useradd -d {} -g {} -s /bin/bash {}"
-                        .format(os.path.join(Frontend.CHROOT_RTT_USERS_HOME, username),
-                                Frontend.RTT_USER_GROUP, username))
+                        .format(chroot_user_home, Frontend.RTT_USER_GROUP, username))
     uid = getpwnam(username).pw_uid
 
     # Create user and user directories in chroot
@@ -40,18 +40,23 @@ try:
     # Change this to dynamic value based on config.
     os.chroot(Frontend.rtt_users_chroot)
     exec_sys_call_check("useradd -d {} -g {} -u {} -s /bin/bash {}"
-                        .format(os.path.join(Frontend.CHROOT_RTT_USERS_HOME, username),
-                                Frontend.RTT_USER_GROUP, uid, username))
-    create_dir(os.path.join(Frontend.CHROOT_RTT_USERS_HOME, username),
+                        .format(chroot_user_home, Frontend.RTT_USER_GROUP, uid, username))
+    create_dir(chroot_user_home, 0o700, own=username, grp=Frontend.RTT_USER_GROUP)
+    create_dir(os.path.join(chroot_user_home, Frontend.SSH_DIR),
                0o700, own=username, grp=Frontend.RTT_USER_GROUP)
-    create_dir(os.path.join(Frontend.CHROOT_RTT_USERS_HOME, username, Frontend.SSH_DIR),
-               0o700, own=username, grp=Frontend.RTT_USER_GROUP)
-    create_file(os.path.join(Frontend.CHROOT_RTT_USERS_HOME, username, Frontend.SSH_DIR,
-                             Frontend.AUTH_KEYS_FILE),
+    create_file(os.path.join(chroot_user_home, Frontend.SSH_DIR, Frontend.AUTH_KEYS_FILE),
                 0o600, own=username, grp=Frontend.RTT_USER_GROUP)
     os.fchdir(real_root)
     os.chroot(".")
     os.close(real_root)
+    
+    # Adding location of submit-experiment script into user PATH
+    # echo "PATH=$PATH:/rtt_frontend_files" >> /rtt_frontend_chroot/home/xobrati1/.profile
+    profile_file = "{}{}".format(Frontend.rtt_users_chroot,
+                                 os.path.join(chroot_user_home, ".profile"))
+    create_file(profile_file, mode=0o600, own=username, grp=Frontend.RTT_USER_GROUP)
+    with open(profile_file, mode='a') as f:
+        f.write("PATH=$PATH:{}\n".format(Frontend.CHROOT_RTT_FILES))
 
     # Creating password for user
     exec_sys_call_check("passwd {}".format(username))
