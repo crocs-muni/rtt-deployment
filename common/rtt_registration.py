@@ -65,7 +65,7 @@ def get_ssh_connection(def_username, address, port):
 
         try:
             ssh.connect(look_for_keys=False, allow_agent=False,
-                        hostname=address, port=port, username=username,
+                        hostname=address, port=int(port), username=username,
                         key_filename=pkey_path, password=password)
             print_info("SSH connection successful.\n")
             return ssh
@@ -79,8 +79,8 @@ def register_db_user(server_acc, server_address, server_port,
                      priv_select=False, priv_insert=False,
                      priv_update=False, priv_delete=False):
 
-    print_info("Registering user {} to database server on {}:{}..."
-               .format(reg_name, server_address, server_port))
+    print("Registering user {} to database server on {}:{}..."
+          .format(reg_name, server_address, server_port))
 
     ssh = get_ssh_connection(server_acc, server_address, server_port)
     if not ssh:
@@ -139,7 +139,7 @@ def register_db_user(server_acc, server_address, server_port,
 
 def add_authorized_key_to_server(server_acc, server_address, server_port,
                                  pubkey_str, authorized_keys_path):
-    print_info("Registering public key to storage server {}".format(server_address))
+    print("Registering public key to storage server {}".format(server_address))
 
     ssh = get_ssh_connection(server_acc, server_address, server_port)
     if not ssh:

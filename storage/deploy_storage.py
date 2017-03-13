@@ -180,16 +180,17 @@ def main():
         # Installing required packages
         install_pkg("libmysqlclient-dev")
         install_pkg("python3-pip")
+        install_pkg("python3-cryptography")
+        install_pkg("python3-paramiko")
         install_pkg("mysqlclient", pkg_mngr="pip3")
 
-        # Registering this storage at database server - creating new db user
-        exec_sys_call_check("ssh -p {0} {1}@{2} "
-                            "\"mysql -u root -p -e "
-                            "\\\"GRANT SELECT ON {3}.* TO '{4}'@'{5}' "
-                            "IDENTIFIED BY '{6}'\\\"\""
-                            .format(Database.ssh_port, Database.ssh_root_user, Database.address,
-                                    Database.MYSQL_DB_NAME, Storage.MYSQL_STORAGE_USER,
-                                    Storage.address, cred_db_password))
+        # This can be done only after installing cryptography and paramiko
+        from common.rtt_registration import register_db_user
+
+        register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
+                         Storage.MYSQL_STORAGE_USER, cred_db_password, Storage.address,
+                         Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
+                         priv_select=True)
 
         # Adding new job to cron - cache cleaning script
         cron_tmp_filename = "cron.tmp"
