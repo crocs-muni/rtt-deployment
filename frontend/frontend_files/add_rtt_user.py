@@ -14,7 +14,7 @@ frontend_ini_file = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 try:
     if len(sys.argv) != 2:
         print("Usage: ./add_rtt_user.py <username>")
-        sys.exit(0)
+        sys.exit(1)
         
     frontend_ini = configparser.ConfigParser()
     try:

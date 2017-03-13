@@ -216,6 +216,6 @@ def main():
 
 
 if __name__ == "__main__":
-    print_start("deploy-storage")
+    print_start("deploy_storage")
     main()
     print_end()

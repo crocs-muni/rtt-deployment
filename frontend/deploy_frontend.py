@@ -281,6 +281,6 @@ def main():
 
 
 if __name__ == "__main__":
-    print_start("deploy-frontend")
+    print_start("deploy_frontend")
     main()
     print_end()

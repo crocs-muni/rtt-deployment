@@ -8,6 +8,8 @@ class CommonConst(object):
     STORAGE_CLEAN_CACHE = "storage_files/clean_cache.py"
     FRONTEND_SUBMIT_EXPERIMENT_SCRIPT = "frontend_files/submit_experiment.py"
     FRONTEND_ADD_USER_SCRIPT = "frontend_files/add_rtt_user.py"
+    BACKEND_RUN_JOBS_SCRIPT = "backend/run_jobs.py"
+    BACKEND_CLEAN_CACHE_SCRIPT = "backend/clean_cache.py"
 
 
 class Database(object):
@@ -53,3 +55,52 @@ class Frontend(object):
     FSTAB_FILE = "/etc/fstab"
     CHROOT_DEBIAN_VERSION = "jessie"
 
+
+class Backend(object):
+    RTT_ADMIN_GROUP = "rtt_admin"
+    BACKEND_CONFIG_FILE = "backend.ini"
+    COMMON_FILES_DIR = "common"
+    CACHE_CONFIG_DIR = "config_files"
+    CACHE_DATA_DIR = "data_files"
+    CREDENTIALS_DIR = "credentials"
+    RTT_EXECUTION_DIR = "rtt_execution"
+    RUN_JOBS_SCRIPT = "run_jobs.py"
+    RUN_JOBS_LOG = "run_jobs.log"
+    CLEAN_CACHE_SCRIPT = "clean_cache.py"
+    CLEAN_CACHE_LOG = "clean_cache.log"
+
+    RANDOMNESS_TESTING_TOOLKIT_SRC_DIR = "randomness-testing-toolkit"
+    RANDOMNESS_TESTING_TOOLKIT_ZIP_URL = \
+        "https://github.com/crocs-muni/randomness-testing-toolkit/archive/master.zip"
+    RTT_STATISTICAL_BATTERIES_SRC_DIR = "rtt-statistical-batteries"
+    RTT_STATISTICAL_BATTERIES_ZIP_URL = \
+        "https://github.com/crocs-muni/rtt-statistical-batteries/archive/master.zip"
+
+    EXEC_LOGS_TOP_DIR = "rtt_results/logs"
+    # These values should be set in the default config in repo.
+    # But better be sure.
+    EXEC_LOGS_RUN_LOG_DIR = "run_logs"
+    EXEC_LOGS_DIEHARDER_DIR = "dieharder"
+    EXEC_LOGS_NIST_STS_DIR = "nist_sts"
+    EXEC_LOGS_SMALLCRUSH_DIR = "tu01/small_crush"
+    EXEC_LOGS_CRUSH_DIR = "tu01/crush"
+    EXEC_LOGS_BIGRUSH_DIR = "tu01/big_crush"
+    EXEC_LOGS_RABBIT_DIR = "tu01/rabbit"
+    EXEC_LOGS_ALPHABIT_DIR = "tu01/alphabit"
+    EXEC_LOGS_BLOCKALPHABIT_DIR = "tu01/block_alphabit"
+
+    EXEC_REPS_TOP_DIR = "rtt_results/reports"
+    EXEC_REPS_MAIN_FILE = "rtt_results/main_table.txt"
+    # These values should be set in the default config in repo.
+    # But better be sure.
+    EXEC_REPS_DIEHARDER_DIR = "dieharder"
+    EXEC_REPS_NIST_STS_DIR = "nist_sts"
+    EXEC_REPS_SMALLCRUSH_DIR = "tu01/small_crush"
+    EXEC_RESP_CRUSH_DIR = "tu01/crush"
+    EXEC_REPS_BIGRUSH_DIR = "tu01/big_crush"
+    EXEC_REPS_RABBIT_DIR = "tu01/rabbit"
+    EXEC_REPS_ALPHABIT_DIR = "tu01/alphabit"
+    EXEC_REPS_BLOCKALPHABIT_DIR = "tu01/block_alphabit"
+
+    # Miscellaneous default settings here!
+    NIST_MAIN_RESULT_DIR = "experiments/AlgorithmTesting"

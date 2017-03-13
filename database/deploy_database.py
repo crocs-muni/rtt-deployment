@@ -64,6 +64,6 @@ def main():
 
 
 if __name__ == "__main__":
-    print_start("deploy-database")
+    print_start("deploy_database")
     main()
     print_end()
