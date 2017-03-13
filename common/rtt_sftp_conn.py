@@ -3,6 +3,7 @@ import paramiko
 import sys
 from common.clilogging import *
 
+
 # Will create sftp connection to storage server
 # Takes object main_cfg which is loaded
 # configuration file. Config must contain

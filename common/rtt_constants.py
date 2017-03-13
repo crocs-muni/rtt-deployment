@@ -12,8 +12,9 @@ class CommonConst(object):
 
 class Database(object):
     # Name of the database. If you change this, you also have to change
-    # name of the database in create-rtt-tables.sql script. It is discouraged.
+    # name of the database in create_rtt_tables.sql script. It is discouraged.
     MYSQL_DB_NAME = "rtt"
+    ROOT_USERNAME = "root"
 
 
 class Storage(object):
