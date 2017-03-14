@@ -1,9 +1,8 @@
 #! /usr/bin/python3
 
-import sys
+import configparser
 import shutil
 import grp
-from common.clilogging import *
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
 
@@ -52,6 +51,26 @@ def main():
         sys.exit(1)
 
     # Sanity checks
+    try:
+        check_paths_abs({
+            Frontend.rtt_users_chroot,
+            Frontend.CHROOT_RTT_FILES,
+            Frontend.CHROOT_RTT_USERS_HOME
+        })
+        check_paths_rel({
+            Frontend.CREDENTIALS_DIR,
+            Frontend.COMMON_FILES_DIR,
+            Frontend.SSH_DIR
+        })
+        check_files_exists({
+            Frontend.ssh_config,
+            Frontend.FSTAB_FILE,
+            CommonConst.FRONTEND_SUBMIT_EXPERIMENT_SCRIPT,
+            CommonConst.FRONTEND_ADD_USER_SCRIPT
+        })
+    except AssertionError as e:
+        print_error("Invalid configuration. {}".format(e))
+
     if not os.path.isabs(Frontend.rtt_users_chroot):
         print_error("Path is not absolute: {}".format(Frontend.rtt_users_chroot))
         sys.exit(1)

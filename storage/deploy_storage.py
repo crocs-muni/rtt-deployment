@@ -1,8 +1,7 @@
 #! /usr/bin/python3
 
-import sys
+import configparser
 import shutil
-from common.clilogging import *
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
 
@@ -35,23 +34,25 @@ def main():
         sys.exit(1)
 
     # Sanity checks
-    if not os.path.isabs(Storage.acc_chroot):
-        print_error("Path is not absolute: {}".format(Storage.acc_chroot))
-        sys.exit(1)
-    if not os.path.isabs(Storage.CHROOT_HOME_DIR):
-        print_error("Path is not absolute: {}".format(Storage.CHROOT_HOME_DIR))
-        sys.exit(1)
-    if not os.path.isabs(Storage.rtt_dir):
-        print_error("Path is not absolute: {}".format(Storage.rtt_dir))
-        sys.exit(1)
-    if os.path.isabs(Storage.CHROOT_CONF_DIR):
-        print_error("Path is not relative: {}".format(Storage.CHROOT_CONF_DIR))
-        sys.exit(1)
-    if os.path.isabs(Storage.CHROOT_DATA_DIR):
-        print_error("Path is not relative: {}".format(Storage.CHROOT_DATA_DIR))
-        sys.exit(1)
-    if not os.path.exists(Storage.ssh_config):
-        print_error("File does not exist: {}".format(Storage.ssh_config))
+    try:
+        check_paths_abs({
+            Storage.acc_chroot,
+            Storage.CHROOT_HOME_DIR,
+            Storage.rtt_dir
+        })
+        check_paths_rel({
+            Storage.CHROOT_CONF_DIR,
+            Storage.CHROOT_DATA_DIR,
+            Storage.SSH_DIR,
+            Storage.COMMON_FILES_DIR,
+            Storage.CREDENTIALS_DIR
+        })
+        check_files_exists({
+            Storage.ssh_config,
+            CommonConst.STORAGE_CLEAN_CACHE
+        })
+    except AssertionError as e:
+        print_error("Invalid configuration. {}".format(e))
         sys.exit(1)
 
     # Declaring all variables that

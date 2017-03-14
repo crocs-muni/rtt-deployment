@@ -1,9 +1,28 @@
-import configparser
 import random
 import string
 import os
+import sys
 import shlex
 from subprocess import call
+from common.clilogging import *
+
+
+def check_paths_abs(paths):
+    for p in paths:
+        if not os.path.isabs(p):
+            raise AssertionError("Path must be absolute: {}".format(p))
+
+
+def check_paths_rel(paths):
+    for p in paths:
+        if os.path.isabs(p):
+            raise AssertionError("Path must be relative: {}".format(p))
+
+
+def check_files_exists(paths):
+    for p in paths:
+        if not os.path.exists(p):
+            raise AssertionError("File does not exist: {}".format(p))
 
 
 def get_no_empty(cfg, section, option):
@@ -13,20 +32,11 @@ def get_no_empty(cfg, section, option):
                          .format(option, section))
     
     return rval
-    
-    
+
+
 def get_rnd_pwd(password_len = 30):
     characters = string.ascii_letters + string.digits
     return "".join(random.SystemRandom().choice(characters) for _ in range(password_len))
-
-
-def update_env():
-    rval = call(["apt-get", "update"])
-    if rval != 0:
-        raise EnvironmentError("Updating apt-get, error code: {}".format(rval))
-    rval = call(["apt-get", "upgrade"])
-    if rval != 0:
-        raise EnvironmentError("Upgrading apt-get, error code: {}".format(rval))
 
 
 def install_pkg(name, pkg_mngr="apt-get"):

@@ -1,8 +1,7 @@
 #! /usr/bin/python3
 
-import sys
+import configparser
 import subprocess
-from common.clilogging import *
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
 
@@ -42,6 +41,16 @@ def main():
         Database.mysql_cfg_path = get_no_empty(deploy_cfg, "Database", "MySQL-config-file")
     except BaseException as e:
         print_error("Configuration file: {}".format(e))
+        sys.exit(1)
+
+    # Sanity checks
+    try:
+        check_files_exists({
+            Database.mysql_cfg_path,
+            CommonConst.CREATE_TABLES_SCRIPT
+        })
+    except AssertionError as e:
+        print_error("Invalid configuration. {}".format(e))
         sys.exit(1)
 
     try:
