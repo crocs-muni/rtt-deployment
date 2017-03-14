@@ -3,6 +3,7 @@
 import sys
 import re
 import os
+import configparser
 from pwd import getpwnam
 from common.clilogging import *
 from common.rtt_deploy_utils import *
@@ -51,7 +52,6 @@ try:
     os.close(real_root)
     
     # Adding location of submit-experiment script into user PATH
-    # echo "PATH=$PATH:/rtt_frontend_files" >> /rtt_frontend_chroot/home/xobrati1/.profile
     profile_file = "{}{}".format(Frontend.rtt_users_chroot,
                                  os.path.join(chroot_user_home, ".profile"))
     create_file(profile_file, mode=0o600, own=username, grp=Frontend.RTT_USER_GROUP)

@@ -70,13 +70,6 @@ def main():
         })
     except AssertionError as e:
         print_error("Invalid configuration. {}".format(e))
-
-    if not os.path.isabs(Frontend.rtt_users_chroot):
-        print_error("Path is not absolute: {}".format(Frontend.rtt_users_chroot))
-        sys.exit(1)
-
-    if not os.path.isabs(Frontend.CHROOT_RTT_FILES):
-        print_error("Path is not absolute: {}".format(Frontend.CHROOT_RTT_FILES))
         sys.exit(1)
 
     # Setting of paths used in this script
@@ -172,10 +165,10 @@ def main():
         create_file(Frontend.abs_config_ini, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
         frontend_ini_cfg = configparser.ConfigParser()
         frontend_ini_cfg.add_section("MySql-Database")
-        frontend_ini_cfg.set("MySql-Database", "Name", Database.MYSQL_DB_NAME)
-        frontend_ini_cfg.set("MySql-Database", "Address", Database.address)
-        frontend_ini_cfg.set("MySql-Database", "Port", Database.mysql_port)
-        frontend_ini_cfg.set("MySql-Database", "Credentials-file",
+        frontend_ini_cfg.set("MySQL-Database", "Name", Database.MYSQL_DB_NAME)
+        frontend_ini_cfg.set("MySQL-Database", "Address", Database.address)
+        frontend_ini_cfg.set("MySQL-Database", "Port", Database.mysql_port)
+        frontend_ini_cfg.set("MySQL-Database", "Credentials-file",
                              Frontend.rel_cred_mysql_ini)
         frontend_ini_cfg.add_section("Storage")
         frontend_ini_cfg.set("Storage", "Address", Storage.address)
@@ -265,17 +258,6 @@ def main():
                          Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
                          priv_insert=True)
 
-        """
-        # Register frontend at MySQL server
-        exec_sys_call_check("ssh -p {0} {1}@{2} "
-                            "\"mysql -u root -p -e "
-                            "\\\"GRANT INSERT ON {3}.* TO '{4}'@'{5}' "
-                            "IDENTIFIED BY '{6}'\\\"\""
-                            .format(Database.ssh_port, Database.ssh_root_user, Database.address,
-                                    Database.MYSQL_DB_NAME, Frontend.MYSQL_FRONTEND_USER,
-                                    Frontend.address, cred_mysql_db_password))
-        """
-
         # Register frontend at the storage
         with open("{}.pub".format(Frontend.abs_cred_store_key), "r") as pub_key_f:
             pub_key = pub_key_f.read().rstrip()
@@ -285,14 +267,7 @@ def main():
                                                    os.path.join(Storage.CHROOT_HOME_DIR,
                                                                 Storage.SSH_DIR,
                                                                 Storage.AUTH_KEYS_FILE)))
-        """
-        exec_sys_call_check("ssh -p {0} {1}@{2} \"printf \\\"{3}\\n\\\" >> {4}{5}\""
-                            .format(Storage.ssh_port, Storage.ssh_root_user, Storage.address,
-                                    pub_key, Storage.acc_chroot,
-                                    os.path.join(Storage.CHROOT_HOME_DIR,
-                                                 Storage.SSH_DIR,
-                                                 Storage.AUTH_KEYS_FILE)))
-        """
+
         # Everything should be okay now.
 
     except BaseException as e:

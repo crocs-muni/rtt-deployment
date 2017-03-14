@@ -34,7 +34,7 @@ def get_no_empty(cfg, section, option):
     return rval
 
 
-def get_rnd_pwd(password_len = 30):
+def get_rnd_pwd(password_len=30):
     characters = string.ascii_letters + string.digits
     return "".join(random.SystemRandom().choice(characters) for _ in range(password_len))
 
@@ -84,4 +84,3 @@ def recursive_chmod_chown(path, mod_f, mod_d, own="", grp=""):
                                   mod_f, mod_d, own, grp)
     else:
         chmod_chown(path, mod_f, own, grp)
-    

@@ -69,12 +69,29 @@ class Backend(object):
     CLEAN_CACHE_SCRIPT = "clean_cache.py"
     CLEAN_CACHE_LOG = "clean_cache.log"
 
+    MYSQL_BACKEND_USER = "rtt_backend"
+    MYSQL_CREDENTIALS_FILE_INI = "db_mysql_cred.ini"
+    MYSQL_CREDENTIALS_FILE_JSON = "db_mysql_cred.json"
+    SSH_CREDENTIALS_FILE = "storage_ssh_cred.ini"
+    SSH_CREDENTIALS_KEY = "storage_ssh_key"
+
+    RTT_SETTINGS_JSON = "rtt-settings.json"
     RANDOMNESS_TESTING_TOOLKIT_SRC_DIR = "randomness-testing-toolkit"
+    RANDOMNESS_TESTING_TOOLKIT_GIT_NAME = "randomness-testing-toolkit-master"
     RANDOMNESS_TESTING_TOOLKIT_ZIP_URL = \
         "https://github.com/crocs-muni/randomness-testing-toolkit/archive/master.zip"
+    RTT_BINARY_NAME = "randomness-testing-toolkit"
+
     RTT_STATISTICAL_BATTERIES_SRC_DIR = "rtt-statistical-batteries"
+    RTT_STATISTICAL_BATTERIES_GIT_NAME = "rtt-statistical-batteries-master"
     RTT_STATISTICAL_BATTERIES_ZIP_URL = \
         "https://github.com/crocs-muni/rtt-statistical-batteries/archive/master.zip"
+    DIEHARDER_BINARY_NAME = "dieharder"
+    NIST_STS_BINARY_NAME = "nist-sts"
+    TESTU01_BINARY_NAME = "testu01"
+    NIST_STS_EXPERIMENTS_DIR = "nist-sts-src/experiments"
+    NIST_STS_RESULT_DIR = "experiments/AlgorithmTesting"
+    NIST_STS_TEMPLATES_DIR = "nist-sts-src/templates"
 
     EXEC_LOGS_TOP_DIR = "rtt_results/logs"
     # These values should be set in the default config in repo.
@@ -96,7 +113,7 @@ class Backend(object):
     EXEC_REPS_DIEHARDER_DIR = "dieharder"
     EXEC_REPS_NIST_STS_DIR = "nist_sts"
     EXEC_REPS_SMALLCRUSH_DIR = "tu01/small_crush"
-    EXEC_RESP_CRUSH_DIR = "tu01/crush"
+    EXEC_REPS_CRUSH_DIR = "tu01/crush"
     EXEC_REPS_BIGCRUSH_DIR = "tu01/big_crush"
     EXEC_REPS_RABBIT_DIR = "tu01/rabbit"
     EXEC_REPS_ALPHABIT_DIR = "tu01/alphabit"
