@@ -9,7 +9,7 @@ from common.rtt_constants import *
 ################################
 # Global variables declaration #
 ################################
-deploy_cfg_file = "../deployment-settings.ini"
+deploy_cfg_file = "../deployment_settings.ini"
 
 
 def main():

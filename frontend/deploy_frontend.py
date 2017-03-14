@@ -10,7 +10,7 @@ from common.rtt_constants import *
 ################################
 # Global variables declaration #
 ################################
-deploy_cfg_file = "../deployment-settings.ini"
+deploy_cfg_file = "../deployment_settings.ini"
 
 
 def rec_set_same_rights_to_g_as_o(path):
