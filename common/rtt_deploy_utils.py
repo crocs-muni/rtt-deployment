@@ -34,6 +34,22 @@ def get_no_empty(cfg, section, option):
     return rval
 
 
+def add_cron_job(script_path, ini_file_path, log_file_path):
+    tmp_file_name = "cron.tmp"
+    script_base = os.path.split(os.path.basename(script_path))[0]
+    entry = "\n* * * * *    /usr/bin/flock " \
+            "/var/tmp/{}.lock {} {} >> {} 2>&1\n"\
+        .format(script_base, script_path, ini_file_path, log_file_path)
+
+    with open(tmp_file_name, "a") as tmp_file:
+        exec_sys_call_check("crontab -l", stdout=tmp_file,
+                            acc_codes=[0, 1])
+        tmp_file.write(entry)
+
+    exec_sys_call_check("crontab {}".format(tmp_file_name))
+    os.remove(tmp_file_name)
+
+
 def get_rnd_pwd(password_len=30):
     characters = string.ascii_letters + string.digits
     return "".join(random.SystemRandom().choice(characters) for _ in range(password_len))

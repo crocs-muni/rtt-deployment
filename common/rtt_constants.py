@@ -8,8 +8,8 @@ class CommonConst(object):
     STORAGE_CLEAN_CACHE = "storage_files/clean_cache.py"
     FRONTEND_SUBMIT_EXPERIMENT_SCRIPT = "frontend_files/submit_experiment.py"
     FRONTEND_ADD_USER_SCRIPT = "frontend_files/add_rtt_user.py"
-    BACKEND_RUN_JOBS_SCRIPT = "backend/run_jobs.py"
-    BACKEND_CLEAN_CACHE_SCRIPT = "backend/clean_cache.py"
+    BACKEND_RUN_JOBS_SCRIPT = "backend_files/run_jobs.py"
+    BACKEND_CLEAN_CACHE_SCRIPT = "backend_files/clean_cache.py"
 
 
 class Database(object):
@@ -80,15 +80,16 @@ class Backend(object):
     RANDOMNESS_TESTING_TOOLKIT_GIT_NAME = "randomness-testing-toolkit-master"
     RANDOMNESS_TESTING_TOOLKIT_ZIP_URL = \
         "https://github.com/crocs-muni/randomness-testing-toolkit/archive/master.zip"
-    RTT_BINARY_NAME = "randomness-testing-toolkit"
+    RTT_BINARY_PATH = "randomness-testing-toolkit"
 
     RTT_STATISTICAL_BATTERIES_SRC_DIR = "rtt-statistical-batteries"
     RTT_STATISTICAL_BATTERIES_GIT_NAME = "rtt-statistical-batteries-master"
     RTT_STATISTICAL_BATTERIES_ZIP_URL = \
         "https://github.com/crocs-muni/rtt-statistical-batteries/archive/master.zip"
-    DIEHARDER_BINARY_NAME = "dieharder"
-    NIST_STS_BINARY_NAME = "nist-sts"
-    TESTU01_BINARY_NAME = "testu01"
+    DIEHARDER_BINARY_PATH = "dieharder-src/install/bin/dieharder"
+    NIST_STS_BINARY_PATH = "nist-sts-src/assess"
+    TESTU01_BINARY_PATH = "testu01-src/binary/TestU01"
+
     NIST_STS_EXPERIMENTS_DIR = "nist-sts-src/experiments"
     NIST_STS_RESULT_DIR = "experiments/AlgorithmTesting"
     NIST_STS_TEMPLATES_DIR = "nist-sts-src/templates"

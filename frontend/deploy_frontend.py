@@ -133,36 +133,13 @@ def main():
                             .format(os.path.join(Frontend.rtt_users_chroot, "sys")))
         shutil.copy("/etc/hosts", os.path.join(Frontend.rtt_users_chroot, "etc/hosts"))
 
-        create_dir(Frontend.abs_rtt_files, 0o775, grp=Frontend.RTT_ADMIN_GROUP)
-        create_dir(Frontend.abs_cred_dir, 0o770, grp=Frontend.RTT_ADMIN_GROUP)
+        create_dir(Frontend.abs_rtt_files, 0o2775, grp=Frontend.RTT_ADMIN_GROUP)
+        # Set ACL on top directory - ensures all new files will have correct permissions
+        exec_sys_call_check("setfacl -R -d -m g::rwx {}".format(Frontend.abs_rtt_files))
+        exec_sys_call_check("setfacl -R -d -m o::--- {}".format(Frontend.abs_rtt_files))
 
-        cred_mysql_db_password = get_rnd_pwd()
-        create_file(Frontend.abs_cred_mysql_ini, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
-        cred_mysql_db_cfg = configparser.ConfigParser()
-        cred_mysql_db_cfg.add_section("Credentials")
-        cred_mysql_db_cfg.set("Credentials", "Username", Frontend.MYSQL_FRONTEND_USER)
-        cred_mysql_db_cfg.set("Credentials", "Password", cred_mysql_db_password)
-        with open(Frontend.abs_cred_mysql_ini, "w") as f:
-            cred_mysql_db_cfg.write(f)
+        create_dir(Frontend.abs_cred_dir, 0o2770, grp=Frontend.RTT_ADMIN_GROUP)
 
-        cred_store_ssh_key_password = get_rnd_pwd()
-        create_file(Frontend.abs_cred_store_ini, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
-        cred_store_ssh_cfg = configparser.ConfigParser()
-        cred_store_ssh_cfg.add_section("Credentials")
-        cred_store_ssh_cfg.set("Credentials", "Username", Storage.storage_user)
-        cred_store_ssh_cfg.set("Credentials", "Private-key-file",
-                               Frontend.rel_cred_store_key)
-        cred_store_ssh_cfg.set("Credentials", "Private-key-password",
-                               cred_store_ssh_key_password)
-        with open(Frontend.abs_cred_store_ini, "w") as f:
-            cred_store_ssh_cfg.write(f)
-
-        exec_sys_call_check("ssh-keygen -q -b 2048 -t rsa -N {} -f {}"
-                            .format(cred_store_ssh_key_password, Frontend.abs_cred_store_key))
-        chmod_chown(Frontend.abs_cred_store_key, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
-        chmod_chown(Frontend.abs_cred_store_key + ".pub", 0o660, grp=Frontend.RTT_ADMIN_GROUP)
-
-        create_file(Frontend.abs_config_ini, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
         frontend_ini_cfg = configparser.ConfigParser()
         frontend_ini_cfg.add_section("MySql-Database")
         frontend_ini_cfg.set("MySQL-Database", "Name", Database.MYSQL_DB_NAME)
@@ -191,8 +168,9 @@ def main():
 
         if os.path.exists(Frontend.abs_common_files):
             shutil.rmtree(Frontend.abs_common_files)
+
         shutil.copytree(CommonConst.COMMON_FILES_DIR, Frontend.abs_common_files)
-        recursive_chmod_chown(Frontend.abs_common_files, mod_f=0o660, mod_d=0o770,
+        recursive_chmod_chown(Frontend.abs_common_files, mod_f=0o660, mod_d=0o2770,
                               grp=Frontend.RTT_ADMIN_GROUP)
 
         # Entering chroot jail
@@ -253,12 +231,37 @@ def main():
         from common.rtt_registration import register_db_user
         from common.rtt_registration import add_authorized_key_to_server
 
+        # Register frontend user at the database
+        cred_mysql_db_password = get_rnd_pwd()
+        cred_mysql_db_cfg = configparser.ConfigParser()
+        cred_mysql_db_cfg.add_section("Credentials")
+        cred_mysql_db_cfg.set("Credentials", "Username", Frontend.MYSQL_FRONTEND_USER)
+        cred_mysql_db_cfg.set("Credentials", "Password", cred_mysql_db_password)
+        with open(Frontend.abs_cred_mysql_ini, "w") as f:
+            cred_mysql_db_cfg.write(f)
+
         register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                          Frontend.MYSQL_FRONTEND_USER, cred_mysql_db_password, Frontend.address,
                          Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
                          priv_insert=True)
 
         # Register frontend at the storage
+        cred_store_ssh_key_password = get_rnd_pwd()
+        cred_store_ssh_cfg = configparser.ConfigParser()
+        cred_store_ssh_cfg.add_section("Credentials")
+        cred_store_ssh_cfg.set("Credentials", "Username", Storage.storage_user)
+        cred_store_ssh_cfg.set("Credentials", "Private-key-file",
+                               Frontend.rel_cred_store_key)
+        cred_store_ssh_cfg.set("Credentials", "Private-key-password",
+                               cred_store_ssh_key_password)
+        with open(Frontend.abs_cred_store_ini, "w") as f:
+            cred_store_ssh_cfg.write(f)
+
+        exec_sys_call_check("ssh-keygen -q -b 2048 -t rsa -N {} -f {}"
+                            .format(cred_store_ssh_key_password, Frontend.abs_cred_store_key))
+        chmod_chown(Frontend.abs_cred_store_key, 0o660, grp=Frontend.RTT_ADMIN_GROUP)
+        chmod_chown(Frontend.abs_cred_store_key + ".pub", 0o660, grp=Frontend.RTT_ADMIN_GROUP)
+
         with open("{}.pub".format(Frontend.abs_cred_store_key), "r") as pub_key_f:
             pub_key = pub_key_f.read().rstrip()
 

@@ -129,16 +129,18 @@ def main():
                     0o600, own=Storage.acc_name, grp=Storage.acc_name)
 
         # Creating directory for rtt files on the server
-        create_dir(Storage.rtt_dir, 0o770, grp=Storage.RTT_ADMIN_GROUP)
-        create_dir(Storage.rtt_credentials_dir, 0o770,
+        create_dir(Storage.rtt_dir, 0o2770, grp=Storage.RTT_ADMIN_GROUP)
+
+        # Set ACL on top directory - ensures all new files will have correct permissions
+        exec_sys_call_check("setfacl -R -d -m g::rwx {}".format(Storage.rtt_dir))
+        exec_sys_call_check("setfacl -R -d -m o::--- {}".format(Storage.rtt_dir))
+
+        create_dir(Storage.rtt_credentials_dir, 0o2770,
                    grp=Storage.RTT_ADMIN_GROUP)
 
         # Copying script for cache cleaning
         shutil.copy(CommonConst.STORAGE_CLEAN_CACHE, Storage.rtt_file_clean_cache)
         chmod_chown(Storage.rtt_file_clean_cache, 0o770,
-                    grp=Storage.RTT_ADMIN_GROUP)
-
-        create_file(Storage.CLEAN_CACHE_LOG, 0o770,
                     grp=Storage.RTT_ADMIN_GROUP)
 
         # Copying common scripts into directory
@@ -147,12 +149,10 @@ def main():
             shutil.rmtree(Storage.rtt_common_dir)
 
         shutil.copytree(CommonConst.COMMON_FILES_DIR, Storage.rtt_common_dir)
-        recursive_chmod_chown(Storage.rtt_common_dir, mod_f=0o660, mod_d=0o770,
+        recursive_chmod_chown(Storage.rtt_common_dir, mod_f=0o660, mod_d=0o2770,
                               grp=Storage.RTT_ADMIN_GROUP)
 
         # Creating configuration file for storage server scripts
-        create_file(Storage.rtt_file_store_ini, 0o660,
-                    grp=Storage.RTT_ADMIN_GROUP)
         ini_cfg = configparser.ConfigParser()
         ini_cfg.add_section("MySql-Database")
         ini_cfg.set("MySql-Database", "Name", Database.MYSQL_DB_NAME)
@@ -162,21 +162,17 @@ def main():
         ini_cfg.add_section("Local-cache")
         ini_cfg.set("Local-cache", "Data-directory", Storage.data_dir)
         ini_cfg.set("Local-cache", "Config-directory", Storage.config_dir)
-        ini_cfg_file = open(Storage.rtt_file_store_ini, "w")
-        ini_cfg.write(ini_cfg_file)
-        ini_cfg_file.close()
+        with open(Storage.rtt_file_store_ini, "w") as f:
+            ini_cfg.write(f)
 
         # Creating credentials file for database access
-        create_file(Storage.rtt_file_mysql_cred, 0o660,
-                    grp=Storage.RTT_ADMIN_GROUP)
         cred_db_password = get_rnd_pwd()
         cred_cfg = configparser.ConfigParser()
         cred_cfg.add_section("Credentials")
         cred_cfg.set("Credentials", "Username", Storage.MYSQL_STORAGE_USER)
         cred_cfg.set("Credentials", "Password", cred_db_password)
-        cred_cfg_file = open(Storage.rtt_file_mysql_cred, "w")
-        cred_cfg.write(cred_cfg_file)
-        cred_cfg_file.close()
+        with open(Storage.rtt_file_mysql_cred, "w") as f:
+            cred_cfg.write(f)
 
         # Installing required packages
         install_pkg("libmysqlclient-dev")
@@ -194,21 +190,9 @@ def main():
                          priv_select=True)
 
         # Adding new job to cron - cache cleaning script
-        cron_tmp_filename = "cron.tmp"
-        cron_entry = "\n* * * * *    " \
-                     "/usr/bin/flock " \
-                     "/var/tmp/clean-cache.lock {} {} >> {} 2>&1\n\n" \
-                     .format(Storage.rtt_file_clean_cache,
-                             Storage.rtt_file_store_ini,
-                             Storage.rtt_file_clean_cache_log)
-
-        cron_tmp_file = open(cron_tmp_filename, "w")
-        exec_sys_call_check("crontab -l", stdout=cron_tmp_file, acc_codes=[0, 1])
-        cron_tmp_file.write(cron_entry)
-        cron_tmp_file.close()
-
-        exec_sys_call_check("crontab {}".format(cron_tmp_filename))
-        os.remove(cron_tmp_filename)
+        add_cron_job(Storage.rtt_file_clean_cache,
+                     Storage.rtt_file_store_ini,
+                     Storage.rtt_file_clean_cache_log)
 
         # All configured here.
 

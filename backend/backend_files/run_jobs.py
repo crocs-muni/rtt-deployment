@@ -33,6 +33,7 @@ storage_config_dir = ""
 rtt_binary = ""
 sender_email = ""
 
+
 ########################
 # Function declaration #
 ########################
@@ -238,6 +239,8 @@ def main():
         print_info("[USAGE] {} <path-to-main-config-file>".format(sys.argv[0]))
         sys.exit(1)
 
+    # All the new generated files will have permissions rwxrwx---
+    old_mask = os.umask(0o007)
     main_cfg_file = sys.argv[1]
     
     ###################################
@@ -314,11 +317,13 @@ def main():
         cursor.close()
         db.close()
         sftp.close()
+        os.umask(old_mask)
     except BaseException as e:
         print_error("Job execution: {}".format(e))
         db.rollback()
         cursor.close()
         db.close()
+        os.umask(old_mask)
         sys.exit(1)
 
 

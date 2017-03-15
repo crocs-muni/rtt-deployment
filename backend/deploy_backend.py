@@ -49,6 +49,7 @@ def main():
 
     except Exception as e:
         print_error("Configuration file: {}".format(e))
+        sys.exit(1)
 
     # Sanity checks
     try:
@@ -99,46 +100,70 @@ def main():
         join(Backend.credentials_dir, Backend.SSH_CREDENTIALS_KEY)
     Backend.ssh_store_pubkey = \
         join(Backend.credentials_dir, Backend.SSH_CREDENTIALS_KEY + ".pub")
+    Backend.run_jobs_path = \
+        join(Backend.rtt_files_dir, Backend.RUN_JOBS_SCRIPT)
+    Backend.clean_cache_path = \
+        join(Backend.rtt_files_dir, Backend.CLEAN_CACHE_SCRIPT)
+    Backend.rtt_binary_path = \
+        join(Backend.rtt_exec_dir, os.path.basename(Backend.RTT_BINARY_PATH))
+    Backend.mysql_cred_ini_path = \
+        join(Backend.credentials_dir, Backend.MYSQL_CREDENTIALS_FILE_INI)
+    Backend.mysql_cred_json_path = \
+        join(Backend.credentials_dir, Backend.MYSQL_CREDENTIALS_FILE_JSON)
+    Backend.ssh_cred_ini_path = \
+        join(Backend.credentials_dir, Backend.SSH_CREDENTIALS_FILE)
+    Backend.config_ini_path = \
+        join(Backend.rtt_files_dir, Backend.BACKEND_CONFIG_FILE)
 
     try:
-        print("install packages")
-
         # Adding rtt-admin group that is intended to manage
         # directories and files related to rtt without root access
         exec_sys_call_check("groupadd {}".format(Backend.RTT_ADMIN_GROUP),
                             acc_codes=[0, 9])
 
+        # Remove directories that was created previously
+        if os.path.exists(Backend.rtt_files_dir):
+            shutil.rmtree(Backend.rtt_files_dir)
+
         # Create and copy needed files into rtt-files
-        create_dir(Backend.cache_conf_dir, 0o770, grp=Backend.RTT_ADMIN_GROUP)
-        create_dir(Backend.cache_data_dir, 0o770, grp=Backend.RTT_ADMIN_GROUP)
-        create_dir(Backend.credentials_dir, 0o770, grp=Backend.RTT_ADMIN_GROUP)
-        create_dir(Backend.rtt_exec_dir, 0o770, grp=Backend.RTT_ADMIN_GROUP)
+        create_dir(Backend.rtt_files_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
+
+        # Set ACL on top directory - ensures all new files will have correct permissions
+        exec_sys_call_check("setfacl -R -d -m g::rwx {}".format(Backend.rtt_files_dir))
+        exec_sys_call_check("setfacl -R -d -m o::--- {}".format(Backend.rtt_files_dir))
+
+        create_dir(Backend.cache_conf_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
+        create_dir(Backend.cache_data_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
+        create_dir(Backend.credentials_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
+        create_dir(Backend.rtt_exec_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
 
         shutil.copy(CommonConst.BACKEND_CLEAN_CACHE_SCRIPT,
-                    join(Backend.rtt_files_dir, Backend.CLEAN_CACHE_SCRIPT))
-        create_file(join(Backend.rtt_files_dir, Backend.CLEAN_CACHE_LOG), 0o660,
-                    grp=Backend.RTT_ADMIN_GROUP)
+                    Backend.clean_cache_path)
+        chmod_chown(Backend.clean_cache_path,
+                    0o770, grp=Backend.RTT_ADMIN_GROUP)
 
-        shutil.copy(CommonConst.BACKEND_RUN_JOBS_SCRIPT,
-                    join(Backend.rtt_files_dir, Backend.RUN_JOBS_SCRIPT))
-        create_file(join(Backend.rtt_files_dir, Backend.RUN_JOBS_LOG), 0o660,
-                    grp=Backend.RTT_ADMIN_GROUP)
+        shutil.copy(CommonConst.BACKEND_RUN_JOBS_SCRIPT, Backend.run_jobs_path)
+        chmod_chown(Backend.run_jobs_path, 0o770, grp=Backend.RTT_ADMIN_GROUP)
 
         if os.path.exists(Backend.common_files_dir):
             shutil.rmtree(Backend.common_files_dir)
 
-        shutil.copytree(CommonConst.COMMON_FILES_DIR, Backend.rtt_files_dir)
-        recursive_chmod_chown(Backend.common_files_dir, mod_f=0o660, mod_d=0o770,
+        shutil.copytree(CommonConst.COMMON_FILES_DIR, Backend.common_files_dir)
+        recursive_chmod_chown(Backend.common_files_dir, mod_f=0o660, mod_d=0o2770,
                               grp=Backend.RTT_ADMIN_GROUP)
 
+        # Install packages
+        install_pkg("libmysqlcppconn-dev")
+        install_pkg("libmysqlclient-dev")
+        install_pkg("python3-pip")
+        install_pkg("python3-cryptography")
+        install_pkg("python3-paramiko")
+        install_pkg("mysqlclient", pkg_mngr="pip3")
+
         # Get current versions of needed tools from git
-        exec_sys_call_check("wget {} -O {}".format(Backend.RANDOMNESS_TESTING_TOOLKIT_ZIP_URL,
-                                                   Backend.rand_test_tool_dl_zip))
-        exec_sys_call_check("unzip {} -d {}".format(Backend.rand_test_tool_dl_zip,
-                                                    Backend.rtt_files_dir))
-        os.remove(Backend.rand_test_tool_dl_zip)
-        os.rename(join(Backend.rtt_files_dir, Backend.RANDOMNESS_TESTING_TOOLKIT_GIT_NAME),
-                  Backend.rand_test_tool_src_dir)
+        # Statistical batteries
+        if os.path.exists(Backend.stat_batt_src_dir):
+            shutil.rmtree(Backend.stat_batt_src_dir)
 
         exec_sys_call_check("wget {} -O {}".format(Backend.RTT_STATISTICAL_BATTERIES_ZIP_URL,
                                                    Backend.stat_batt_dl_zip))
@@ -148,15 +173,52 @@ def main():
         os.rename(join(Backend.rtt_files_dir, Backend.RTT_STATISTICAL_BATTERIES_GIT_NAME),
                   Backend.stat_batt_src_dir)
 
+        # Randomness testing toolkit
+        if os.path.exists(Backend.rand_test_tool_src_dir):
+            shutil.rmtree(Backend.rand_test_tool_src_dir)
+
+        exec_sys_call_check("wget {} -O {}".format(Backend.RANDOMNESS_TESTING_TOOLKIT_ZIP_URL,
+                                                   Backend.rand_test_tool_dl_zip))
+        exec_sys_call_check("unzip {} -d {}".format(Backend.rand_test_tool_dl_zip,
+                                                    Backend.rtt_files_dir))
+        os.remove(Backend.rand_test_tool_dl_zip)
+        os.rename(join(Backend.rtt_files_dir, Backend.RANDOMNESS_TESTING_TOOLKIT_GIT_NAME),
+                  Backend.rand_test_tool_src_dir)
+
         # Change into directory rtt-src and rtt-stat-batt-src and call make and ./INSTALL respectively.
+        current_dir = os.path.abspath(os.path.curdir)
 
-        # After build
-        os.symlink(join(Backend.rand_test_tool_src_dir, Backend.RTT_BINARY_NAME),
-                   join(Backend.rtt_exec_dir, Backend.RTT_BINARY_NAME))
+        # Build statistical batteries
+        os.chdir(Backend.stat_batt_src_dir)
+        exec_sys_call_check("./INSTALL")
+        recursive_chmod_chown(Backend.stat_batt_src_dir, mod_f=0o660, mod_d=0o2770,
+                              grp=Backend.RTT_ADMIN_GROUP)
+        chmod_chown(Backend.DIEHARDER_BINARY_PATH, 0o770)
+        chmod_chown(Backend.NIST_STS_BINARY_PATH, 0o770)
+        chmod_chown(Backend.TESTU01_BINARY_PATH, 0o770)
 
-        # Create config file for randomness-testing-toolkit
-        create_file(join(Backend.rtt_exec_dir, Backend.RTT_SETTINGS_JSON), 0o660,
-                    grp=Backend.RTT_ADMIN_GROUP)
+        # Build randomness testing toolkit
+        os.chdir(Backend.rand_test_tool_src_dir)
+        exec_sys_call_check("make")
+        recursive_chmod_chown(Backend.rand_test_tool_src_dir, mod_f=0o660, mod_d=0o2770,
+                              grp=Backend.RTT_ADMIN_GROUP)
+        chmod_chown(Backend.RTT_BINARY_PATH, 0o770)
+
+        # Build finished, go into original directory
+        os.chdir(current_dir)
+
+        # Link rtt binary into execution directory
+        os.symlink(join(Backend.rand_test_tool_src_dir, Backend.RTT_BINARY_PATH),
+                   Backend.rtt_binary_path)
+
+        # Copy needed directories and files into execution directory
+        shutil.copytree(join(Backend.stat_batt_src_dir, Backend.NIST_STS_TEMPLATES_DIR),
+                        join(Backend.rtt_exec_dir,
+                             os.path.basename(Backend.NIST_STS_TEMPLATES_DIR)))
+        shutil.copytree(join(Backend.stat_batt_src_dir, Backend.NIST_STS_EXPERIMENTS_DIR),
+                        join(Backend.rtt_exec_dir,
+                             os.path.basename(Backend.NIST_STS_EXPERIMENTS_DIR)))
+
         rtt_settings = {
             "toolkit-settings": {
                 "logger": {
@@ -188,13 +250,13 @@ def main():
                         "address": Database.address,
                         "port": Database.mysql_port,
                         "name": Database.MYSQL_DB_NAME,
-                        "credentials-file": join(Backend.credentials_dir, Backend.MYSQL_CREDENTIALS_FILE_JSON)
+                        "credentials-file": Backend.mysql_cred_json_path
                     }
                 },
                 "binaries": {
-                    "nist-sts": join(Backend.stat_batt_src_dir, Backend.NIST_STS_BINARY_NAME),
-                    "dieharder": join(Backend.stat_batt_src_dir, Backend.DIEHARDER_BINARY_NAME),
-                    "testu01": join(Backend.stat_batt_src_dir, Backend.TESTU01_BINARY_NAME)
+                    "nist-sts": join(Backend.stat_batt_src_dir, Backend.NIST_STS_BINARY_PATH),
+                    "dieharder": join(Backend.stat_batt_src_dir, Backend.DIEHARDER_BINARY_PATH),
+                    "testu01": join(Backend.stat_batt_src_dir, Backend.TESTU01_BINARY_PATH)
                 },
                 "miscelaneous": {
                     "nist-sts": {
@@ -211,19 +273,18 @@ def main():
             json.dump(rtt_settings, f, indent=4)
 
         # Create backend configuration file
-        create_file(join(Backend.rtt_files_dir, Backend.BACKEND_CONFIG_FILE), 0o660,
-                    grp=Backend.RTT_ADMIN_GROUP)
         backend_ini_cfg = configparser.ConfigParser()
         backend_ini_cfg.add_section("MySQL-Database")
         backend_ini_cfg.set("MySQL-Database", "Address", Database.address)
         backend_ini_cfg.set("MySQL-Database", "Port", Database.mysql_port)
         backend_ini_cfg.set("MySQL-Database", "Name", Database.MYSQL_DB_NAME)
         backend_ini_cfg.set("MySQL-Database", "Credentials-file",
-                            join(Backend.credentials_dir, Backend.MYSQL_CREDENTIALS_FILE_INI))
+                            Backend.mysql_cred_ini_path)
         backend_ini_cfg.add_section("Local-cache")
         backend_ini_cfg.set("Local-cache", "Data-directory", Backend.cache_data_dir)
         backend_ini_cfg.set("Local-cache", "Config-directory", Backend.cache_conf_dir)
-        # Missing email!!
+        backend_ini_cfg.add_section("Backend")
+        backend_ini_cfg.set("Backend", "Sender-email", "dummy@example.com")
         backend_ini_cfg.add_section("Storage")
         backend_ini_cfg.set("Storage", "Address", Storage.address)
         backend_ini_cfg.set("Storage", "Port", Storage.ssh_port)
@@ -231,39 +292,32 @@ def main():
                             join(Storage.CHROOT_HOME_DIR, Storage.CHROOT_DATA_DIR))
         backend_ini_cfg.set("Storage", "Config-directory",
                             join(Storage.CHROOT_HOME_DIR, Storage.CHROOT_CONF_DIR))
-        backend_ini_cfg.set("Storage", "Credentials-file",
-                            join(Backend.credentials_dir, Backend.SSH_CREDENTIALS_FILE))
+        backend_ini_cfg.set("Storage", "Credentials-file", Backend.ssh_cred_ini_path)
         backend_ini_cfg.add_section("RTT-Binary")
         backend_ini_cfg.set("RTT-Binary", "Binary-path",
-                            join(Backend.rtt_exec_dir, Backend.RTT_BINARY_NAME))
-        with open(join(Backend.rtt_files_dir, Backend.BACKEND_CONFIG_FILE), "w") as f:
+                            Backend.rtt_binary_path)
+        with open(Backend.config_ini_path, "w") as f:
             backend_ini_cfg.write(f)
 
-        install_pkg("python3-cryptography")
-        install_pkg("python3-paramiko")
         from common.rtt_registration import register_db_user
         from common.rtt_registration import add_authorized_key_to_server
 
         # Register machine to database
         db_pwd = get_rnd_pwd()
-        create_file(join(Backend.credentials_dir, Backend.MYSQL_CREDENTIALS_FILE_INI), 0o660,
-                    grp=Backend.RTT_ADMIN_GROUP)
         cred_mysql_db_ini = configparser.ConfigParser()
         cred_mysql_db_ini.add_section("Credentials")
         cred_mysql_db_ini.set("Credentials", "Username", Backend.MYSQL_BACKEND_USER)
         cred_mysql_db_ini.set("Credentials", "Password", db_pwd)
-        with open(join(Backend.credentials_dir, Backend.MYSQL_CREDENTIALS_FILE_INI)) as f:
+        with open(Backend.mysql_cred_ini_path, "w") as f:
             cred_mysql_db_ini.write(f)
 
-        create_file(join(Backend.credentials_dir, Backend.MYSQL_CREDENTIALS_FILE_JSON), 0o660,
-                    grp=Backend.RTT_ADMIN_GROUP)
         cred_mysql_db_json = {
-            "Credentials": {
-                "Username": Backend.MYSQL_BACKEND_USER,
-                "Password": db_pwd
+            "credentials": {
+                "username": Backend.MYSQL_BACKEND_USER,
+                "password": db_pwd
             }
         }
-        with open(join(Backend.credentials_dir, Backend.MYSQL_CREDENTIALS_FILE_JSON), "w") as f:
+        with open(Backend.mysql_cred_json_path, "w") as f:
             json.dump(cred_mysql_db_json, f, indent=4)
 
         register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
@@ -280,15 +334,12 @@ def main():
         with open(Backend.ssh_store_pubkey) as f:
             pub_key = f.read().rstrip()
 
-        create_file(join(Backend.credentials_dir, Backend.SSH_CREDENTIALS_FILE),
-                    0o660, grp=Backend.RTT_ADMIN_GROUP)
         cred_ssh_store_ini = configparser.ConfigParser()
         cred_ssh_store_ini.add_section("Credentials")
         cred_ssh_store_ini.set("Credentials", "Username", Storage.storage_user)
-        cred_ssh_store_ini.set("Credentials", "Private-key-file",
-                               join(Backend.credentials_dir, Backend.SSH_CREDENTIALS_KEY))
+        cred_ssh_store_ini.set("Credentials", "Private-key-file", Backend.ssh_store_pkey)
         cred_ssh_store_ini.set("Credentials", "Private-key-password", key_pwd)
-        with open(join(Backend.credentials_dir, Backend.SSH_CREDENTIALS_KEY), "w") as f:
+        with open(Backend.ssh_cred_ini_path, "w") as f:
             cred_ssh_store_ini.write(f)
 
         add_authorized_key_to_server(Storage.ssh_root_user, Storage.address, Storage.ssh_port,
@@ -296,6 +347,13 @@ def main():
                                                             join(Storage.CHROOT_HOME_DIR,
                                                                  Storage.SSH_DIR,
                                                                  Storage.AUTH_KEYS_FILE)))
+
+        # Add cron jobs for cache cleaning and job running script
+        add_cron_job(Backend.clean_cache_path, Backend.config_ini_path,
+                     join(Backend.rtt_files_dir, Backend.CLEAN_CACHE_LOG))
+
+        add_cron_job(Backend.run_jobs_path, Backend.config_ini_path,
+                     join(Backend.rtt_files_dir, Backend.RUN_JOBS_LOG))
 
     except BaseException as e:
         print_error("{}. Fix error and run the script again.".format(e))
