@@ -153,6 +153,8 @@ def main():
                               grp=Backend.RTT_ADMIN_GROUP)
 
         # Install packages
+        install_pkg("mailutils")
+        install_pkg("postfix")
         install_pkg("libmysqlcppconn-dev")
         install_pkg("libmysqlclient-dev")
         install_pkg("python3-pip")
@@ -272,6 +274,19 @@ def main():
         with open(join(Backend.rtt_exec_dir, Backend.RTT_SETTINGS_JSON), "w") as f:
             json.dump(rtt_settings, f, indent=4)
 
+        # Get email configuration
+        with open(Backend.POSTFIX_CFG_PATH) as mail_cfg:
+            for line in mail_cfg.readlines():
+                if line.startswith(Backend.POSTFIX_HOST_OPT):
+                    Backend.sender_email = line.split(sep=" = ")[1]
+
+        if Backend.sender_email is None:
+            print_error("can't find option {} in file {}"
+                        .format(Backend.POSTFIX_CFG_PATH, Backend.POSTFIX_HOST_OPT))
+            sys.exit(1)
+
+        Backend.sender_email = "root@" + Backend.sender_email
+
         # Create backend configuration file
         backend_ini_cfg = configparser.ConfigParser()
         backend_ini_cfg.add_section("MySQL-Database")
@@ -284,7 +299,7 @@ def main():
         backend_ini_cfg.set("Local-cache", "Data-directory", Backend.cache_data_dir)
         backend_ini_cfg.set("Local-cache", "Config-directory", Backend.cache_conf_dir)
         backend_ini_cfg.add_section("Backend")
-        backend_ini_cfg.set("Backend", "Sender-email", "dummy@example.com")
+        backend_ini_cfg.set("Backend", "Sender-email", Backend.sender_email)
         backend_ini_cfg.add_section("Storage")
         backend_ini_cfg.set("Storage", "Address", Storage.address)
         backend_ini_cfg.set("Storage", "Port", Storage.ssh_port)

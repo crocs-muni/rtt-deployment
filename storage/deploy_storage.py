@@ -154,11 +154,11 @@ def main():
 
         # Creating configuration file for storage server scripts
         ini_cfg = configparser.ConfigParser()
-        ini_cfg.add_section("MySql-Database")
-        ini_cfg.set("MySql-Database", "Name", Database.MYSQL_DB_NAME)
-        ini_cfg.set("MySql-Database", "Address", Database.address)
-        ini_cfg.set("MySql-Database", "Port", Database.mysql_port)
-        ini_cfg.set("MySql-Database", "Credentials-file", Storage.rtt_file_mysql_cred)
+        ini_cfg.add_section("MySQL-Database")
+        ini_cfg.set("MySQL-Database", "Name", Database.MYSQL_DB_NAME)
+        ini_cfg.set("MySQL-Database", "Address", Database.address)
+        ini_cfg.set("MySQL-Database", "Port", Database.mysql_port)
+        ini_cfg.set("MySQL-Database", "Credentials-file", Storage.rtt_file_mysql_cred)
         ini_cfg.add_section("Local-cache")
         ini_cfg.set("Local-cache", "Data-directory", Storage.data_dir)
         ini_cfg.set("Local-cache", "Config-directory", Storage.config_dir)

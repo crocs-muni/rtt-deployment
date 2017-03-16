@@ -69,6 +69,9 @@ class Backend(object):
     CLEAN_CACHE_SCRIPT = "clean_cache.py"
     CLEAN_CACHE_LOG = "clean_cache.log"
 
+    POSTFIX_CFG_PATH = "/etc/postfix/main.cf"
+    POSTFIX_HOST_OPT = "myhostname"
+
     MYSQL_BACKEND_USER = "rtt_backend"
     MYSQL_CREDENTIALS_FILE_INI = "db_mysql_cred.ini"
     MYSQL_CREDENTIALS_FILE_JSON = "db_mysql_cred.json"

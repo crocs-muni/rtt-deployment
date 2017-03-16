@@ -46,7 +46,6 @@ def main():
     # Sanity checks
     try:
         check_files_exists({
-            Database.mysql_cfg_path,
             CommonConst.CREATE_TABLES_SCRIPT
         })
     except AssertionError as e:

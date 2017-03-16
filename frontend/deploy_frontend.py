@@ -141,7 +141,7 @@ def main():
         create_dir(Frontend.abs_cred_dir, 0o2770, grp=Frontend.RTT_ADMIN_GROUP)
 
         frontend_ini_cfg = configparser.ConfigParser()
-        frontend_ini_cfg.add_section("MySql-Database")
+        frontend_ini_cfg.add_section("MySQL-Database")
         frontend_ini_cfg.set("MySQL-Database", "Name", Database.MYSQL_DB_NAME)
         frontend_ini_cfg.set("MySQL-Database", "Address", Database.address)
         frontend_ini_cfg.set("MySQL-Database", "Port", Database.mysql_port)
@@ -155,6 +155,7 @@ def main():
         frontend_ini_cfg.set("Storage", "Config-directory",
                              os.path.join(Storage.CHROOT_HOME_DIR, Storage.CHROOT_CONF_DIR))
         frontend_ini_cfg.set("Storage", "Credentials-file", Frontend.rel_cred_store_ini)
+        frontend_ini_cfg.add_section("Frontend")
         frontend_ini_cfg.set("Frontend", "RTT-Users-Chroot", Frontend.rtt_users_chroot)
         with open(Frontend.abs_config_ini, "w") as f:
             frontend_ini_cfg.write(f)

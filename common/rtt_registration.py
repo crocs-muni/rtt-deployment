@@ -19,7 +19,7 @@ def get_ssh_connection(def_username, address, port):
     while True:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        print("\nLogging in to server {}:{}...".format(address, port))
+        print("Logging in to server {}:{}...".format(address, port))
         username = input("Username (empty for {}): ".format(def_username))
         if len(username) == 0:
             username = def_username
@@ -79,7 +79,7 @@ def register_db_user(server_acc, server_address, server_port,
                      priv_select=False, priv_insert=False,
                      priv_update=False, priv_delete=False):
 
-    print("Registering user {} to database server on {}:{}..."
+    print("\n\nRegistering user {} to database server on {}:{}..."
           .format(reg_name, server_address, server_port))
 
     ssh = get_ssh_connection(server_acc, server_address, server_port)
@@ -141,7 +141,7 @@ def register_db_user(server_acc, server_address, server_port,
 
 def add_authorized_key_to_server(server_acc, server_address, server_port,
                                  pubkey_str, authorized_keys_path):
-    print("Registering public key to storage server {}".format(server_address))
+    print("\n\nRegistering public key to storage server {}".format(server_address))
 
     ssh = get_ssh_connection(server_acc, server_address, server_port)
     if not ssh:
