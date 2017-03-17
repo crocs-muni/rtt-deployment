@@ -153,14 +153,15 @@ def main():
                               grp=Backend.RTT_ADMIN_GROUP)
 
         # Install packages
-        install_pkg("mailutils")
-        install_pkg("postfix")
-        install_pkg("libmysqlcppconn-dev")
-        install_pkg("libmysqlclient-dev")
-        install_pkg("python3-pip")
-        install_pkg("python3-cryptography")
-        install_pkg("python3-paramiko")
-        install_pkg("mysqlclient", pkg_mngr="pip3")
+        install_debian_pkg("mailutils")
+        install_debian_pkg("postfix")
+        install_debian_pkg("libmysqlcppconn-dev")
+        install_debian_pkg("libmysqlclient-dev")
+        install_debian_pkg("python3-pip")
+        install_debian_pkg("python3-cryptography")
+        install_debian_pkg("python3-paramiko")
+
+        install_python_pkg("mysqlclient")
 
         # Get current versions of needed tools from git
         # Statistical batteries
