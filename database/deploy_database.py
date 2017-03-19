@@ -53,7 +53,7 @@ def main():
         sys.exit(1)
 
     try:
-        install_pkg("mysql-server")
+        install_debian_pkg("mysql-server")
 
         # Configuring environment
         exec_sys_call_check("mysql_secure_installation")

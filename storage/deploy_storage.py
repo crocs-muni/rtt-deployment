@@ -175,11 +175,12 @@ def main():
             cred_cfg.write(f)
 
         # Installing required packages
-        install_pkg("libmysqlclient-dev")
-        install_pkg("python3-pip")
-        install_pkg("python3-cryptography")
-        install_pkg("python3-paramiko")
-        install_pkg("mysqlclient", pkg_mngr="pip3")
+        install_debian_pkg("libmysqlclient-dev")
+        install_debian_pkg("python3-pip")
+        install_debian_pkg("python3-cryptography")
+        install_debian_pkg("python3-paramiko")
+
+        install_python_pkg("mysqlclient")
 
         # This can be done only after installing cryptography and paramiko
         from common.rtt_registration import register_db_user

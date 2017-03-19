@@ -36,7 +36,7 @@ def get_no_empty(cfg, section, option):
 
 def add_cron_job(script_path, ini_file_path, log_file_path):
     tmp_file_name = "cron.tmp"
-    script_base = os.path.split(os.path.basename(script_path))[0]
+    script_base = os.path.splitext(os.path.basename(script_path))[0]
     entry = "\n* * * * *    /usr/bin/flock " \
             "/var/tmp/{}.lock {} {} >> {} 2>&1\n"\
         .format(script_base, script_path, ini_file_path, log_file_path)
@@ -55,8 +55,14 @@ def get_rnd_pwd(password_len=30):
     return "".join(random.SystemRandom().choice(characters) for _ in range(password_len))
 
 
-def install_pkg(name, pkg_mngr="apt-get"):
-    rval = call([pkg_mngr, "install", name])
+def install_debian_pkg(name):
+    rval = call(["apt-get", "install", name, "--yes"])
+    if rval != 0:
+        raise EnvironmentError("Installing package {}, error code: {}".format(name, rval))
+
+
+def install_python_pkg(name):
+    rval = call(["pip3", "install", name])
     if rval != 0:
         raise EnvironmentError("Installing package {}, error code: {}".format(name, rval))
 

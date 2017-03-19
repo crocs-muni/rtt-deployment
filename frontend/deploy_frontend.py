@@ -114,7 +114,7 @@ def main():
         rtt_user_grp_gid = grp.getgrnam(Frontend.RTT_USER_GROUP).gr_gid
 
         # Installing debootstrap used for ssh jail
-        install_pkg("debootstrap")
+        install_debian_pkg("debootstrap")
 
         # Building chroot jail for rtt users
         create_dir(Frontend.rtt_users_chroot, 0o775, grp=Frontend.RTT_ADMIN_GROUP)
@@ -185,16 +185,17 @@ def main():
                             acc_codes=[0, 9])
 
         # Installing needed packages inside jail
-        install_pkg("python3")
-        install_pkg("python3-dev")
-        install_pkg("python3-setuptools")
-        install_pkg("libmysqlclient-dev")
-        install_pkg("build-essential")
-        install_pkg("python3-cryptography")
-        install_pkg("python3-paramiko")
-        install_pkg("python3-pip")
-        install_pkg("pyinstaller", pkg_mngr="pip3")
-        install_pkg("mysqlclient", pkg_mngr="pip3")
+        install_debian_pkg("python3")
+        install_debian_pkg("python3-dev")
+        install_debian_pkg("python3-setuptools")
+        install_debian_pkg("libmysqlclient-dev")
+        install_debian_pkg("build-essential")
+        install_debian_pkg("python3-cryptography")
+        install_debian_pkg("python3-paramiko")
+        install_debian_pkg("python3-pip")
+
+        install_python_pkg("pyinstaller")
+        install_python_pkg("mysqlclient")
 
         os.chdir(Frontend.CHROOT_RTT_FILES)
         exec_sys_call_check("pyinstaller -F {}".format(Frontend.SUBMIT_EXPERIMENT_SCRIPT))
@@ -227,8 +228,8 @@ def main():
             
         exec_sys_call_check("service sshd restart")
 
-        install_pkg("python3-cryptography")
-        install_pkg("python3-paramiko")
+        install_debian_pkg("python3-cryptography")
+        install_debian_pkg("python3-paramiko")
         from common.rtt_registration import register_db_user
         from common.rtt_registration import add_authorized_key_to_server
 

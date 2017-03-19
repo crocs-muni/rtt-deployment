@@ -77,18 +77,6 @@ def get_job_info(connection):
 
     # Looking for experiments that have all their jobs set as pending. This will cause that
     # each experiment is computed by single node, given enough experiments are available
-    # cursor.execute("SELECT experiment_id FROM jobs "
-    #                "GROUP BY experiment_id HAVING "
-    #                "MIN(status) = 'pending' AND MAX(status) = 'pending'")
-    # if cursor.rowcount != 0:
-    #     row = cursor.fetchone()
-    #     experiment_id = row[0]
-    #     cursor.execute(sql_sel_job, (experiment_id, ))
-    #     row = cursor.fetchone()
-    #     job_info = JobInfo(row[0], row[1], row[2])
-    #     cursor.execute(sql_upd_job_running, (job_info.id, ))
-    #     connection.commit()
-    #     return job_info
     cursor.execute("""SELECT id FROM experiments
                       WHERE status='pending'""")
     if cursor.rowcount != 0:
