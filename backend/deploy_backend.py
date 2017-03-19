@@ -275,6 +275,10 @@ def main():
             json.dump(rtt_settings, f, indent=4)
 
         # Get email configuration
+
+        # Add configuration to file
+        # inet_interface = loopback-only
+        # inet_protocol = ipv4
         with open(Backend.POSTFIX_CFG_PATH) as mail_cfg:
             for line in mail_cfg.readlines():
                 if line.startswith(Backend.POSTFIX_HOST_OPT):
