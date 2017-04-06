@@ -100,7 +100,7 @@ def pick_batteries(args):
     if args.tu01_alphabit:
         picked_batts ^= battery_flags['tu01_alphabit']
     if args.tu01_blockalphabit:
-        picked_batts ^= battery_flags['tu_blockalphabit']
+        picked_batts ^= battery_flags['tu01_blockalphabit']
     return picked_batts
 
 
