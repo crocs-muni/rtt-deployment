@@ -57,6 +57,7 @@ try:
     create_file(profile_file, mode=0o600, own=username, grp=Frontend.RTT_USER_GROUP)
     with open(profile_file, mode='a') as f:
         f.write("PATH=$PATH:{}\n".format(Frontend.CHROOT_RTT_FILES))
+        f.write("umask 077\n")
 
     # Creating password for user
     exec_sys_call_check("passwd {}".format(username))
