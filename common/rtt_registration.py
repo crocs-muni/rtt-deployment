@@ -148,7 +148,7 @@ def add_authorized_key_to_server(server_acc, server_address, server_port,
         print_error("Couldn't connect to the server, exit.")
         sys.exit(1)
 
-    command = "sudo -S printf \"{0}\n\" >> {1}".format(pubkey_str, authorized_keys_path)
+    command = "sudo -S su -c 'printf \"{0}\n\" >> {1}'".format(pubkey_str, authorized_keys_path)
 
     while True:
         password = getpass("Enter sudo password (empty for none): ")
@@ -175,3 +175,4 @@ def add_authorized_key_to_server(server_acc, server_address, server_port,
 
     print_info("Registration into storage server successful!")
     ssh.close()
+
