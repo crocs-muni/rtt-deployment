@@ -51,8 +51,12 @@ def add_cron_job(script_path, ini_file_path, log_file_path):
 
 
 def get_rnd_pwd(password_len=30):
-    characters = string.ascii_letters + string.digits
-    return "".join(random.SystemRandom().choice(characters) for _ in range(password_len))
+    spec_chars = "!?$%&@+<>^"
+    characters = string.ascii_letters + string.digits + spec_chars
+    while True:
+        rval = "".join(random.SystemRandom().choice(characters) for _ in range(password_len))
+        if any(spec in rval for spec in spec_chars):
+            return rval
 
 
 def install_debian_pkg(name):

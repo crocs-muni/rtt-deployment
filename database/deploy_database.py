@@ -64,7 +64,10 @@ def main():
         # Restarting mysql service
         exec_sys_call_check("/etc/init.d/mysql restart")
 
-        exec_sys_call_check("mysql -u root -p",
+        print_info("Creating database scheme: {}".format(Database.MYSQL_DB_NAME))
+        print_info("You may be asked password for database user: {}"
+                   .format(Database.MYSQL_ROOT_USERNAME))
+        exec_sys_call_check("mysql -u {} -p".format(Database.MYSQL_ROOT_USERNAME),
                             stdin=open(CommonConst.CREATE_TABLES_SCRIPT, "r"))
 
     except BaseException as e:
