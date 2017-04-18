@@ -51,7 +51,7 @@ def add_cron_job(script_path, ini_file_path, log_file_path):
 
 
 def get_rnd_pwd(password_len=30):
-    spec_chars = "!?$%&@+<>^"
+    spec_chars = "!?$&@+<>^"
     characters = string.ascii_letters + string.digits + spec_chars
     while True:
         rval = "".join(random.SystemRandom().choice(characters) for _ in range(password_len))
