@@ -44,7 +44,7 @@ def get_job_info(connection):
     sql_upd_job_running = \
         """UPDATE jobs SET status='running' WHERE id=%s"""
     sql_upd_experiment_running = \
-        """UPDATE experiments SET status='running' WHERE id=%s"""
+        """UPDATE experiments SET run_started=NOW(), status='running' WHERE id=%s"""
     sql_sel_job = \
         """SELECT id, experiment_id, battery
            FROM jobs
@@ -277,7 +277,7 @@ def main():
     ############################################################
     try:
         sql_upd_job_finished = """UPDATE jobs SET status='finished' WHERE id=%s"""
-        sql_upd_experiment_finished = """UPDATE experiments SET status='finished' WHERE id=%s"""
+        sql_upd_experiment_finished = """UPDATE experiments SET  run_finished=NOW(), status='finished' WHERE id=%s"""
         # Do this until get_job_info uses sys.exit(0) =>
         # => there are no pending jobs
         # Otherwise loop is without break, so code will always

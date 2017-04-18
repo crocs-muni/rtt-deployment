@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS experiments (
     name                VARCHAR(255) NOT NULL,
     author_email        VARCHAR(255),
     created             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    run_started         DATETIME DEFAULT NULL,
+    run_finished        DATETIME DEFAULT NULL,
     status              ENUM('pending','running','finished') NOT NULL DEFAULT 'pending',
     config_file         VARCHAR(255) NOT NULL,
     data_file           VARCHAR(255) NOT NULL,
