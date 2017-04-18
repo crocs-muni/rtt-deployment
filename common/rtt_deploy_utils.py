@@ -60,7 +60,7 @@ def get_rnd_pwd(password_len=30):
 
 
 def install_debian_pkg(name):
-    rval = call(["apt-get", "install", name, "--yes"])
+    rval = call(["apt-get", "install", name, "--yes", "--force-yes"])
     if rval != 0:
         raise EnvironmentError("Installing package {}, error code: {}".format(name, rval))
 

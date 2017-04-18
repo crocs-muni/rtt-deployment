@@ -115,10 +115,13 @@ def main():
 
         # Installing debootstrap used for ssh jail
         install_debian_pkg("debootstrap")
-
+        
+        # Delete chroot directory if it exists
+        if os.path.exists(Frontend.rtt_users_chroot):
+            shutil.rmtree(Frontend.rtt_users_chroot)
+        
         # Building chroot jail for rtt users
         create_dir(Frontend.rtt_users_chroot, 0o775, grp=Frontend.RTT_ADMIN_GROUP)
-        # chroot jail should have sticky bit set!
         exec_sys_call_check("debootstrap {} {}".format(Frontend.CHROOT_DEBIAN_VERSION,
                                                        Frontend.rtt_users_chroot))
         with open(Frontend.FSTAB_FILE, "a") as f:
