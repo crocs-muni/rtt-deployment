@@ -263,7 +263,6 @@ def main():
     ##########################
     sftp = create_sftp_storage_conn(main_cfg)
 
-    file_null = open(os.devnull, 'w')
     # Changing working directory so RTT will find files it needs
     # to run
     os.chdir(os.path.dirname(rtt_binary))
@@ -289,7 +288,9 @@ def main():
             print_info("Executing job: job_id {}, experiment_id {}"
                        .format(job_info.id, job_info.experiment_id))
             print_info("CMD: {}".format(rtt_args))
-            subprocess.call(shlex.split(rtt_args), stdout=file_null, stderr=subprocess.STDOUT)
+            with open(os.devnull, 'w') as file_null:
+                subprocess.call(shlex.split(rtt_args), stdout=file_null, stderr=subprocess.STDOUT)
+            
             print_info("Execution complete.")
             cursor.execute(sql_upd_job_finished, (job_info.id, ))
 
