@@ -3,13 +3,13 @@
 
 
 class CommonConst(object):
-    COMMON_FILES_DIR = "../common"
-    CREATE_TABLES_SCRIPT = "db_files/create_rtt_tables.sql"
-    STORAGE_CLEAN_CACHE = "storage_files/clean_cache.py"
-    FRONTEND_SUBMIT_EXPERIMENT_SCRIPT = "frontend_files/submit_experiment.py"
-    FRONTEND_ADD_USER_SCRIPT = "frontend_files/add_rtt_user.py"
-    BACKEND_RUN_JOBS_SCRIPT = "backend_files/run_jobs.py"
-    BACKEND_CLEAN_CACHE_SCRIPT = "backend_files/clean_cache.py"
+    COMMON_FILES_DIR = "common"
+    CREATE_TABLES_SCRIPT = "files/create_rtt_tables.sql"
+    STORAGE_CLEAN_CACHE = "files/clean_cache.py"
+    FRONTEND_SUBMIT_EXPERIMENT_SCRIPT = "files/submit_experiment.py"
+    FRONTEND_ADD_USER_SCRIPT = "files/add_rtt_user.py"
+    BACKEND_RUN_JOBS_SCRIPT = "files/run_jobs.py"
+    BACKEND_CLEAN_CACHE_SCRIPT = "files/clean_cache.py"
 
 
 class Database(object):
