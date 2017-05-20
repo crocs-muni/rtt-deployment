@@ -134,7 +134,7 @@ def get_config_path(config_dir, experiment_id):
 
 
 def get_rtt_arguments(job_info):
-    return "{} -b {} -c {} -f {} --mysql {}" \
+    return "{} -b {} -c {} -f {} -r db_mysql --eid {}" \
         .format(rtt_binary,
                 job_info.battery,
                 get_config_path(cache_config_dir, job_info.experiment_id),

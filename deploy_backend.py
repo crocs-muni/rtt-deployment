@@ -261,7 +261,7 @@ def main():
                     "dieharder": join(Backend.stat_batt_src_dir, Backend.DIEHARDER_BINARY_PATH),
                     "testu01": join(Backend.stat_batt_src_dir, Backend.TESTU01_BINARY_PATH)
                 },
-                "miscelaneous": {
+                "miscellaneous": {
                     "nist-sts": {
                         "main-result-dir": join(Backend.rtt_exec_dir, Backend.NIST_MAIN_RESULT_DIR)
                     }

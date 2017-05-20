@@ -248,7 +248,7 @@ def main():
         register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                          Frontend.MYSQL_FRONTEND_USER, cred_mysql_db_password, Frontend.address,
                          Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
-                         priv_insert=True)
+                         priv_insert=True, priv_select=True)
 
         # Register frontend at the storage
         cred_store_ssh_key_password = get_rnd_pwd()
