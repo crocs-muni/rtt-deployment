@@ -37,7 +37,7 @@ def get_no_empty(cfg, section, option):
 def add_cron_job(script_path, ini_file_path, log_file_path):
     tmp_file_name = "cron.tmp"
     script_base = os.path.splitext(os.path.basename(script_path))[0]
-    entry = "\n* * * * *    /usr/bin/flock " \
+    entry = "\n* * * * *    /usr/bin/flock -n " \
             "/var/tmp/{}.lock {} {} >> {} 2>&1\n"\
         .format(script_base, script_path, ini_file_path, log_file_path)
 
