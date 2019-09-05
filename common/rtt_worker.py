@@ -7,6 +7,7 @@ import logging
 import signal
 import threading
 import time
+import sys
 import os
 from shlex import quote
 import shellescape
@@ -87,14 +88,19 @@ def escape_shell(inp):
 
 
 class AsyncRunner:
-    def __init__(self, cmd, args=None):
+    def __init__(self, cmd, args=None, stdout=None, stderr=None):
         self.cmd = cmd
         self.args = args
         self.on_finished = None
         self.on_output = None
+        self.no_log_just_write = False
         self.log_out_during = True
         self.log_out_after = True
+        self.stdout = stdout
+        self.stderr = stderr
 
+        self.using_stdout_cap = True
+        self.using_stderr_cap = True
         self.ret_code = None
         self.out_acc = []
         self.err_acc = []
@@ -113,13 +119,15 @@ class AsyncRunner:
         if args_str and len(args_str) > 0:
             cmd += " " + args_str
 
+        self.using_stdout_cap = self.stdout is None
+        self.using_stderr_cap = self.stderr is None
         feeder = Feeder()
         p = run(
             cmd,
             input=feeder,
             async_=True,
-            stdout=Capture(timeout=0.1, buffer_size=1),
-            stderr=Capture(timeout=0.1, buffer_size=1),
+            stdout=self.stdout or Capture(timeout=0.1, buffer_size=1),
+            stderr=self.stderr or Capture(timeout=0.1, buffer_size=1),
             cwd=os.getcwd(),
             env=None,
             shell=True,
@@ -134,7 +142,12 @@ class AsyncRunner:
             dst = self.err_acc if is_err else self.out_acc
             dst.append(line)
             if self.log_out_during:
-                logger.debug("Out: %s" % line.strip())
+                if self.no_log_just_write:
+                    dv = sys.stderr if is_err else sys.stdout
+                    dv.write(line + "\n")
+                    dv.flush()
+                else:
+                    logger.debug("Out: %s" % line.strip())
             if self.on_output:
                 self.on_output(self, line, is_err)
 
@@ -167,11 +180,15 @@ class AsyncRunner:
             self.on_change()
 
             while p.commands[0].returncode is None:
-                out, err = p.stdout.read(-1, False), p.stderr.read(-1, False)
-                if out:
-                    add_output([out])
-                if err:
-                    add_output([err], True)
+                if self.using_stdout_cap:
+                    out = p.stdout.read(-1, False)
+                    if out:
+                        add_output([out])
+
+                if self.using_stderr_cap:
+                    err = p.stderr.read(-1, False)
+                    if err:
+                        add_output([err], True)
 
                 p.commands[0].poll()
                 if self.terminating and p.commands[0].returncode is None:
@@ -180,13 +197,15 @@ class AsyncRunner:
                     logger.info("Sigint sent")
                     p.close()
                     logger.info("Process closed")
-                if not out or err:
+                if (self.using_stdout_cap and not out) or (self.using_stderr_cap and err):
                     continue
                 time.sleep(0.01)
 
             self.ret_code = p.commands[0].returncode
-            add_output([p.stdout.read(-1, False)])
-            add_output([p.stderr.read(-1, False)], True)
+            if self.using_stdout_cap:
+                add_output([p.stdout.read(-1, False)])
+            if self.using_stderr_cap:
+                add_output([p.stderr.read(-1, False)], True)
             self.is_running = False
             self.on_change()
 
