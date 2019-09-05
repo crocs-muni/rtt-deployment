@@ -308,6 +308,8 @@ def main():
                         help='Number of seconds the script will run since start')
     parser.add_argument('--job-time', dest='job_time', default=None, type=int,
                         help='Number of seconds the single test will run (max)')
+    parser.add_argument('--all-time', dest='all_time', default=None, type=int,
+                        help='Spend all time checking for jobs')
     parser.add_argument('config', default=None,
                         help='Config file')
     args = parser.parse_args()
@@ -393,13 +395,24 @@ def main():
                 logger.info("Time remaining: %s, terminating" % (time.time() - time_start))
                 raise SystemExit()
 
-            job_info = get_job_info(db)
+            # If we should spend all allocated time ignore the exit
+            job_info = None
+            try:
+                job_info = get_job_info(db)
+            except SystemExit as e:
+                if args.run_time and args.all_time:
+                    time.sleep(1)
+                    continue
+                else:
+                    raise
+
             fetch_data(job_info.experiment_id, sftp)
             rtt_args = get_rtt_arguments(job_info)
             print_info("Executing job: job_id {}, experiment_id {}"
                        .format(job_info.id, job_info.experiment_id))
             print_info("CMD: {}".format(rtt_args))
 
+            time_job_start = time.time()
             async_runner = rtt_worker.AsyncRunner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary), shell=False)
             async_runner.log_out_after = False
             with open(os.devnull, 'w') as file_null:
@@ -411,6 +424,8 @@ def main():
                         logger.debug('Heartbeat for %s' % job_info.id)
                         job_heartbeat(db, job_info)
                         last_heartbeat = time.time()
+                    #if time.time() - time_job_start > max_sec_per_test:
+                    #    logger.info('Job is taking too long')
                     time.sleep(1)
 
             print_info("Execution complete.")
