@@ -163,6 +163,10 @@ def main():
         install_debian_pkg("python3-paramiko")
 
         install_python_pkg("mysqlclient")
+        install_python_pkg("sarge")
+        install_python_pkg("requests")
+        install_python_pkg("shellescape")
+        install_python_pkg("coloredlogs")
 
         # Get current versions of needed tools from git
         # Statistical batteries

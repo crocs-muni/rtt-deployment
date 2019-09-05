@@ -88,7 +88,7 @@ def escape_shell(inp):
 
 
 class AsyncRunner:
-    def __init__(self, cmd, args=None, stdout=None, stderr=None):
+    def __init__(self, cmd, args=None, stdout=None, stderr=None, cwd=None):
         self.cmd = cmd
         self.args = args
         self.on_finished = None
@@ -98,6 +98,7 @@ class AsyncRunner:
         self.log_out_after = True
         self.stdout = stdout
         self.stderr = stderr
+        self.cwd = cwd
 
         self.using_stdout_cap = True
         self.using_stderr_cap = True
@@ -116,19 +117,25 @@ class AsyncRunner:
             " ".join(self.args) if isinstance(self.args, (list, tuple)) else self.args
         )
         cmd = self.cmd
+
+        if isinstance(cmd, (list, tuple)):
+            cmd = " ".join(cmd)
+
         if args_str and len(args_str) > 0:
             cmd += " " + args_str
 
         self.using_stdout_cap = self.stdout is None
         self.using_stderr_cap = self.stderr is None
         feeder = Feeder()
+
+        logger.info("Starting command %s in %s" % (cmd, self.cwd))
         p = run(
             cmd,
             input=feeder,
             async_=True,
             stdout=self.stdout or Capture(timeout=0.1, buffer_size=1),
             stderr=self.stderr or Capture(timeout=0.1, buffer_size=1),
-            cwd=os.getcwd(),
+            cwd=self.cwd,
             env=None,
             shell=True,
             preexec_fn=preexec_function,

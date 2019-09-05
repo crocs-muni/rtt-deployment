@@ -23,8 +23,14 @@ CREATE TABLE IF NOT EXISTS jobs (
     run_started         DATETIME DEFAULT NULL,
     run_finished        DATETIME DEFAULT NULL,
     experiment_id       BIGINT UNSIGNED NOT NULL,
+    run_heartbeat       DATETIME DEFAULT NULL,
+    worker_id           BIGINT UNSIGNED DEFAULT NULL,
     FOREIGN KEY (experiment_id) REFERENCES experiments(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = INNODB;
+
+-- ALTER TABLE jobs
+-- ADD COLUMN run_heartbeat  DATETIME DEFAULT NULL AFTER experiment_id,
+-- ADD COLUMN worker_id BIGINT UNSIGNED DEFAULT NULL AFTER run_heartbeat;
 
 CREATE TABLE IF NOT EXISTS batteries (
     id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
@@ -125,4 +131,18 @@ CREATE TABLE IF NOT EXISTS p_values (
     value               DOUBLE NOT NULL,
     subtest_id          BIGINT UNSIGNED NOT NULL,
     FOREIGN KEY (subtest_id) REFERENCES subtests(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = INNODB;
+
+CREATE TABLE IF NOT EXISTS workers (
+    id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
+    worker_id           VARCHAR(32) NOT NULL,
+    worker_name         VARCHAR(250) DEFAULT NULL,
+    worker_type         ENUM('longterm','shortterm') NOT NULL DEFAULT 'longterm',
+    worker_added        DATETIME DEFAULT NULL,
+    worker_last_seen    DATETIME DEFAULT NULL,
+    worker_active       INT UNSIGNED NOT NULL DEFAULT 1,
+    worker_address      VARCHAR(250) DEFAULT NULL,
+    worker_location     VARCHAR(250) DEFAULT NULL,
+    worker_aux          LONGTEXT DEFAULT NULL,
+    UNIQUE(worker_id)
 ) ENGINE = INNODB;
