@@ -342,7 +342,7 @@ def main():
         backend_data.id = args.id if args.id else main_cfg.get('Backend', 'backend-id')
         backend_data.name = args.name if args.name else main_cfg.get('Backend', 'backend-name', fallback=None)
         backend_data.location = args.location if args.location else main_cfg.get('Backend', 'backend-loc', fallback=None)
-        backend_data.longterm = args.longterm if args.longterm else main_cfg.getint('Backend', 'backend-longterm', fallback=False)
+        backend_data.type_longterm = args.longterm if args.longterm else main_cfg.getint('Backend', 'backend-longterm', fallback=False)
         backend_data.aux = args.aux if args.aux else main_cfg.get('Backend', 'backend-aux', fallback=None)
         max_sec_per_test = args.job_time if args.job_time else main_cfg.getint('Backend', 'Maximum-seconds-per-test', fallback=3800)
     except BaseException as e:
@@ -400,7 +400,7 @@ def main():
                        .format(job_info.id, job_info.experiment_id))
             print_info("CMD: {}".format(rtt_args))
 
-            async_runner = rtt_worker.AsyncRunner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary))
+            async_runner = rtt_worker.AsyncRunner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary), shell=False)
             async_runner.log_out_after = False
             with open(os.devnull, 'w') as file_null:
                 # subprocess.call(shlex.split(rtt_args), stdout=file_null, stderr=subprocess.STDOUT)
@@ -408,6 +408,7 @@ def main():
                 async_runner.start()
                 while async_runner.is_running:
                     if time.time() - last_heartbeat > 20:
+                        logger.debug('Heartbeat for %s' % job_info)
                         job_heartbeat(db, job_info)
                         last_heartbeat = time.time()
                     time.sleep(1)
@@ -424,6 +425,7 @@ def main():
 
     except SystemExit as e:
         logger.error(e)
+        logger.info("System exit, terminating")
         print_info("Terminating.")
         cursor.close()
         db.close()
