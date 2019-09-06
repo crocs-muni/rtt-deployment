@@ -25,12 +25,18 @@ CREATE TABLE IF NOT EXISTS jobs (
     experiment_id       BIGINT UNSIGNED NOT NULL,
     run_heartbeat       DATETIME DEFAULT NULL,
     worker_id           BIGINT UNSIGNED DEFAULT NULL,
+    worker_pid          INT UNSIGNED DEFAULT NULL,
+    retries             INT UNSIGNED DEFAULT 0,
     FOREIGN KEY (experiment_id) REFERENCES experiments(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = INNODB;
 
 -- ALTER TABLE jobs
 -- ADD COLUMN run_heartbeat  DATETIME DEFAULT NULL AFTER experiment_id,
 -- ADD COLUMN worker_id BIGINT UNSIGNED DEFAULT NULL AFTER run_heartbeat;
+
+-- ALTER TABLE jobs
+-- ADD COLUMN worker_pid          INT UNSIGNED DEFAULT NULL AFTER worker_id,
+-- ADD COLUMN retries             INT UNSIGNED DEFAULT 0 AFTER worker_pid;
 
 CREATE TABLE IF NOT EXISTS batteries (
     id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
