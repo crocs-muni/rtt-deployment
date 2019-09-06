@@ -84,7 +84,7 @@ def get_job_info(connection):
         UPDATE jobs set status='pending', retries=retries+1
         WHERE status='running' 
           AND run_started > DATE_SUB(NOW(), INTERVAL 3 DAY)
-          AND run_heartbeat < DATE_SUB(NOW(), INTERVAL 6 HOUR)
+          AND run_heartbeat < DATE_SUB(NOW(), INTERVAL 1 HOUR)
           AND retries < 10
         """
 
