@@ -59,6 +59,7 @@ rtt_binary = ""
 sender_email = ""
 backend_data = BackendData()
 max_sec_per_test = 4000
+worker_pid = os.getpid()
 
 
 ########################
@@ -70,13 +71,25 @@ def get_job_info(connection):
 
     # Preparing sql expressions
     sql_upd_job_running = \
-        """UPDATE jobs SET run_started=NOW(), status='running', run_heartbeat=NOW(), worker_id=%s WHERE id=%s"""
+        """UPDATE jobs SET run_started=NOW(), status='running', run_heartbeat=NOW(), worker_id=%s, worker_pid=%s 
+           WHERE id=%s"""
     sql_upd_experiment_running = \
         """UPDATE experiments SET run_started=NOW(), status='running' WHERE id=%s"""
     sql_sel_job = \
         """SELECT id, experiment_id, battery
            FROM jobs
            WHERE status='pending' AND experiment_id=%s"""
+    sql_reset_job = \
+        """
+        UPDATE jobs set status='pending', retries=retries+1
+        WHERE status='running' 
+          AND run_started > DATE_SUB(NOW(), INTERVAL 3 DAY)
+          AND run_heartbeat < DATE_SUB(NOW(), INTERVAL 6 HOUR)
+          AND retries < 10
+        """
+
+    # Job reset
+    cursor.execute(sql_reset_job)
 
     # Looking for jobs whose files are already present in local cache
     cursor.execute("SELECT experiment_id FROM jobs "
@@ -98,7 +111,7 @@ def get_job_info(connection):
             cursor.execute(sql_sel_job, (experiment_id, ))
             row = cursor.fetchone()
             job_info = JobInfo(row[0], row[1], row[2])
-            cursor.execute(sql_upd_job_running, (backend_data.id_key, job_info.id))
+            cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id))
             connection.commit()
             return job_info
     # If program gets here, no relevant cached files were found
@@ -114,7 +127,7 @@ def get_job_info(connection):
         row = cursor.fetchone()
         job_info = JobInfo(row[0], row[1], row[2])
         cursor.execute(sql_upd_experiment_running, (experiment_id, ))
-        cursor.execute(sql_upd_job_running, (backend_data.id_key, job_info.id, ))
+        cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
         connection.commit()
         return job_info
 
@@ -125,15 +138,15 @@ def get_job_info(connection):
                    "FROM jobs WHERE status='pending'")
     row = cursor.fetchone()
     job_info = JobInfo(row[0], row[1], row[2])
-    cursor.execute(sql_upd_job_running, (backend_data.id_key, job_info.id, ))
+    cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
     connection.commit()
     return job_info
 
 
 def job_heartbeat(connection, job_info):
     cursor = connection.cursor()
-    sql_upd_job_running = """UPDATE jobs SET run_heartbeat=NOW(), status='running' WHERE id=%s"""
-    cursor.execute(sql_upd_job_running, (job_info.id,))
+    sql_upd_job_running = """UPDATE jobs SET run_heartbeat=NOW(), status='running', worker_pid=%s WHERE id=%s"""
+    cursor.execute(sql_upd_job_running, (os.getpid(), job_info.id))
     connection.commit()
 
 
