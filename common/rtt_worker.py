@@ -216,11 +216,14 @@ class AsyncRunner:
                     continue
                 time.sleep(0.01)
 
+            p.wait()
             self.ret_code = p.commands[0].returncode
             if self.using_stdout_cap:
                 add_output([p.stdout.read(-1, False)])
+                p.stdout.close()
             if self.using_stderr_cap:
                 add_output([p.stderr.read(-1, False)], True)
+                p.stderr.close()
             self.is_running = False
             self.on_change()
 
