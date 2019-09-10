@@ -12,9 +12,16 @@
 import os
 import configparser
 import sys
+import logging
+import coloredlogs
 from common.clilogging import *
 from common.rtt_db_conn import *
 from common.rtt_deploy_utils import *
+
+logger = logging.getLogger(__name__)
+coloredlogs.CHROOT_FILES = []
+coloredlogs.install(level=logging.DEBUG, use_chroot=False)
+
 
 ################################
 # Global variables declaration #
@@ -42,19 +49,9 @@ def delete_cache_files(exp_id):
         print_info("File was already removed: {}".format(cache_config_file))
 
 
-#################
-# MAIN FUNCTION #
-#################
-def main():
+def clean_caches(main_cfg_file):
     global cache_data_dir
     global cache_config_dir
-
-    # Get path to main config from console
-    if len(sys.argv) != 2:
-        print_info("[USAGE] {} <path-to-main-config-file>".format(sys.argv[0]))
-        sys.exit(1)
-
-    main_cfg_file = sys.argv[1]
 
     ###################################
     # Reading configuration from file #
@@ -66,7 +63,7 @@ def main():
         if len(main_cfg.sections()) == 0:
             print_error("Can't read configuration: {}".format(main_cfg_file))
             sys.exit(1)
-    
+
         cache_data_dir = get_no_empty(main_cfg, 'Local-cache', 'Data-directory')
         cache_config_dir = get_no_empty(main_cfg, 'Local-cache', 'Config-directory')
     except BaseException as e:
@@ -80,7 +77,7 @@ def main():
         for data_file in os.listdir(cache_data_dir):
             exp_id = int(os.path.splitext(os.path.basename(data_file))[0])
             cursor.execute("SELECT status FROM experiments WHERE id=%s",
-                           (exp_id, ))
+                           (exp_id,))
 
             if cursor.rowcount == 1:
                 row = cursor.fetchone()
@@ -95,6 +92,19 @@ def main():
         print_error("Cache files deletion: {}".format(e))
         cursor.close()
         db.close()
+
+
+#################
+# MAIN FUNCTION #
+#################
+def main():
+    # Get path to main config from console
+    if len(sys.argv) != 2:
+        print_info("[USAGE] {} <path-to-main-config-file>".format(sys.argv[0]))
+        sys.exit(1)
+
+    main_cfg_file = sys.argv[1]
+    clean_caches(main_cfg_file)
 
 
 if __name__ == "__main__":

@@ -247,6 +247,17 @@ def experiment_finished(exp_id, connection):
     return True
 
 
+def try_clean_cache(config):
+    try:
+        import clean_cache_backend
+        logger.info("Cleaning the cache...")
+        clean_cache_backend.clean_caches(config)
+        logger.info("Cache cleaned up")
+
+    except Exception as e:
+        logger.error("Cache cleanup exception", e)
+
+
 def send_email_to_author(exp_id, connection):
     cursor = connection.cursor()
     cursor.execute("SELECT author_email, id, name, created, config_file, data_file, data_file_sha256 "
@@ -333,6 +344,8 @@ def main():
                         help='Number of seconds the single test will run (max)')
     parser.add_argument('--all-time', dest='all_time', default=None, type=int,
                         help='Spend all time checking for jobs')
+    parser.add_argument('--clean-cache', dest='clean_cache', default=None, type=int,
+                        help='Clean cache after script termination')
     parser.add_argument('config', default=None,
                         help='Config file')
     args = parser.parse_args()
@@ -471,6 +484,10 @@ def main():
         cursor.close()
         db.close()
         sftp.close()
+
+        if args.clean_cache:
+            try_clean_cache(main_cfg_file)
+
         os.umask(old_mask)
     except BaseException as e:
         logger.error(e)
