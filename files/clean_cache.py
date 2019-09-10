@@ -17,6 +17,9 @@ import coloredlogs
 from common.clilogging import *
 from common.rtt_db_conn import *
 from common.rtt_deploy_utils import *
+from common import rtt_utils
+from common import rtt_constants
+
 
 logger = logging.getLogger(__name__)
 coloredlogs.CHROOT_FILES = []
@@ -49,6 +52,22 @@ def delete_cache_files(exp_id):
         print_info("File was already removed: {}".format(cache_config_file))
 
 
+def try_clean_logs(log_dir):
+    try:
+        logger.info("Cleaning the log dir %s" % log_dir)
+        res = rtt_utils.clean_log_files(log_dir)
+        logger.info("Log dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
+
+    except Exception as e:
+        logger.error("Log dir cleanup exception", e)
+
+
+def get_rtt_root_dir(config_dir):
+    config_els = config_dir.split(os.sep)
+    base_els = rtt_constants.Backend.CACHE_CONFIG_DIR.split(os.sep)
+    return os.sep.join(config_els[:-1 * len(base_els)])
+
+
 def clean_caches(main_cfg_file):
     global cache_data_dir
     global cache_config_dir
@@ -70,6 +89,8 @@ def clean_caches(main_cfg_file):
         print_error("Configuration file: {}".format(e))
         sys.exit(1)
 
+    rtt_root_dir = get_rtt_root_dir(cache_config_dir)
+    rtt_log_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.EXEC_LOGS_TOP_DIR)
     db = create_mysql_db_conn(main_cfg)
     cursor = db.cursor()
 
@@ -92,6 +113,8 @@ def clean_caches(main_cfg_file):
         print_error("Cache files deletion: {}".format(e))
         cursor.close()
         db.close()
+
+    try_clean_logs(rtt_log_dir)
 
 
 #################

@@ -28,6 +28,7 @@ from common.rtt_db_conn import *
 from common.rtt_sftp_conn import *
 from common import rtt_constants
 from common import rtt_worker
+from common import rtt_utils
 
 
 logger = logging.getLogger(__name__)
@@ -258,6 +259,16 @@ def try_clean_cache(config):
         logger.error("Cache cleanup exception", e)
 
 
+def try_clean_logs(log_dir):
+    try:
+        logger.info("Cleaning the log dir %s" % log_dir)
+        res = rtt_utils.clean_log_files(log_dir)
+        logger.info("Log dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1]/1024/1024))
+
+    except Exception as e:
+        logger.error("Log dir cleanup exception", e)
+
+
 def send_email_to_author(exp_id, connection):
     cursor = connection.cursor()
     cursor.execute("SELECT author_email, id, name, created, config_file, data_file, data_file_sha256 "
@@ -312,6 +323,12 @@ def send_email_to_author(exp_id, connection):
         print_info("Mail sent to {}.".format(recipient))
 
 
+def get_rtt_root_dir(config_dir):
+    config_els = config_dir.split(os.sep)
+    base_els = rtt_constants.Backend.CACHE_CONFIG_DIR.split(os.sep)
+    return os.sep.join(config_els[:-1 * len(base_els)])
+
+
 #################
 # MAIN FUNCTION #
 #################
@@ -346,6 +363,8 @@ def main():
                         help='Spend all time checking for jobs')
     parser.add_argument('--clean-cache', dest='clean_cache', default=None, type=int,
                         help='Clean cache after script termination')
+    parser.add_argument('--clean-logs', dest='clean_logs', default=None, type=int,
+                        help='Clean experiment logs after termination')
     parser.add_argument('config', default=None,
                         help='Config file')
     args = parser.parse_args()
@@ -377,6 +396,8 @@ def main():
         storage_config_dir = main_cfg.get('Storage', 'Config-directory')
         sender_email = main_cfg.get('Backend', 'Sender-email')
         rtt_binary = main_cfg.get('RTT-Binary', 'Binary-path')
+        rtt_root_dir = get_rtt_root_dir(cache_config_dir)
+        rtt_log_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.EXEC_LOGS_TOP_DIR)
         backend_data.id = args.id if args.id else main_cfg.get('Backend', 'backend-id')
         backend_data.name = args.name if args.name else main_cfg.get('Backend', 'backend-name', fallback=None)
         backend_data.location = args.location if args.location else main_cfg.get('Backend', 'backend-loc', fallback=None)
@@ -487,8 +508,11 @@ def main():
 
         if args.clean_cache:
             try_clean_cache(main_cfg_file)
+        if args.clean_logs:
+            try_clean_logs(rtt_log_dir)
 
         os.umask(old_mask)
+
     except BaseException as e:
         logger.error(e)
         print_error("Job execution: {}".format(e))
