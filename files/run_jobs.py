@@ -193,24 +193,28 @@ def ensure_backend_record(connection, backend_data):
     return backend_data
 
 
-def fetch_data(experiment_id, sftp):
+def fetch_data(experiment_id, sftp, force=False):
     storage_data_path = get_data_path(storage_data_dir, experiment_id)
     storage_config_path = get_config_path(storage_config_dir, experiment_id)
     cache_data_path = get_data_path(cache_data_dir, experiment_id)
     cache_config_path = get_config_path(cache_config_dir, experiment_id)
 
-    if not os.path.exists(cache_data_path):
+    if not os.path.exists(cache_data_path) or force:
         print_info("Downloading remote file {} into {}"
                    .format(storage_data_path, cache_data_path))
-        sftp.get(storage_data_path, cache_data_path)
+        downloader = SftpDownloader(sftp, critical_speed=1024, critical_time_zero_bytes=30)
+        downloader.get(storage_data_path, cache_data_path)
+        # sftp.get(storage_data_path, cache_data_path)
         print_info("Download complete.")
     else:
         print_info("File {} is already in cache.".format(cache_data_path))
 
-    if not os.path.exists(cache_config_path):
+    if not os.path.exists(cache_config_path) or force:
         print_info("Downloading remote file {} into {}"
                    .format(storage_config_path, cache_config_path))
-        sftp.get(storage_config_path, cache_config_path)
+        downloader = SftpDownloader(sftp, critical_speed=1024, critical_time_zero_bytes=30)
+        downloader.get(storage_config_path, cache_config_path)
+        # sftp.get(storage_config_path, cache_config_path)
         print_info("Download complete.")
     else:
         print_info("File {} is already in cache.".format(cache_config_path))
