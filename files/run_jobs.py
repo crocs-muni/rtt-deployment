@@ -150,6 +150,14 @@ def job_heartbeat(connection, job_info):
     connection.commit()
 
 
+def deactivate_worker(connection, backend_data):
+    logger.info("Deactivating worker %s" % backend_data.id_key)
+    cursor = connection.cursor()
+    sql_deactivate_worker = """UPDATE workers SET worker_active=0, worker_last_seen=NOW() WHERE id=%s"""
+    cursor.execute(sql_deactivate_worker, (backend_data.id_key,))
+    connection.commit()
+
+
 def ensure_backend_record(connection, backend_data):
     cursor = connection.cursor()
     sql_get_rec = \
@@ -313,6 +321,8 @@ def main():
                         help='Worker name to use, e.g., random 32B')
     parser.add_argument('--longterm', dest='longterm', default=None, type=int,
                         help='Worker longterm type')
+    parser.add_argument('--deactivate', dest='deactivate', default=None, type=int,
+                        help='Deactivate after worker is ending')
     parser.add_argument('--location', dest='location', default=None, type=int,
                         help='Worker location info')
     parser.add_argument('--aux', dest='aux', default=None, type=int,
@@ -455,6 +465,9 @@ def main():
         logger.error(e)
         logger.info("System exit, terminating")
         print_info("Terminating.")
+        if args.deactivate:
+            deactivate_worker(db, backend_data)
+
         cursor.close()
         db.close()
         sftp.close()
