@@ -188,7 +188,7 @@ def ensure_backend_record(connection, backend_data):
     row = cursor.fetchone()
     backend_data.id_key = row[0]
 
-    sql_upd_seen = """UPDATE workers SET worker_last_seen=NOW(), worker_address=%s WHERE id=%s"""
+    sql_upd_seen = """UPDATE workers SET worker_last_seen=NOW(), worker_address=%s, worker_active=1 WHERE id=%s"""
     cursor.execute(sql_upd_seen, (backend_data.address, row[0],))
     connection.commit()
     return backend_data
