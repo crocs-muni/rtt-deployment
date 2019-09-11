@@ -14,7 +14,17 @@ from common.clilogging import *
 # Credentials-file - path to file with login information
 #   Must contain section Credentials with
 #   fields Username and Password
-def create_mysql_db_conn(main_cfg):
+
+class MySQLParams(object):
+    def __init__(self, host="127.0.0.1", port=3306, db="rtt", user="rtt", password=""):
+        self.host = host
+        self.port = port
+        self.db = db
+        self.user = user
+        self.password = password
+
+
+def mysql_load_params(main_cfg, host_override=None, port_override=None):
     try:
         name = main_cfg.get('MySQL-Database', 'Name')
         address = main_cfg.get('MySQL-Database', 'Address')
@@ -31,17 +41,32 @@ def create_mysql_db_conn(main_cfg):
         if len(cred_cfg.sections()) == 0:
             print_error("Can't read credentials file: {}".format(db_cred_file))
             sys.exit(1)
-    
+
         username = cred_cfg.get('Credentials', 'Username')
         password = cred_cfg.get('Credentials', 'Password')
     except BaseException as e:
         print_error("Credentials file: {}".format(e))
         sys.exit(1)
 
+    if host_override:
+        address = host_override
+    if port_override:
+        port = port_override
+    return MySQLParams(host=address, port=port, db=name,
+                       user=username, password=password)
+
+
+def connect_mysql_db(params: MySQLParams):
     try:
-        db = MySQLdb.connect(host=address, port=port, db=name,
-                             user=username, passwd=password)
+        db = MySQLdb.connect(host=params.host, port=params.port, db=params.db,
+                             user=params.user, passwd=params.password)
         return db
     except BaseException as e:
         print_error("Database connection: {}".format(e))
         sys.exit(1)
+
+
+def create_mysql_db_conn(main_cfg, host_override=None, port_override=None):
+    params = mysql_load_params(main_cfg, host_override=host_override, port_override=port_override)
+    return connect_mysql_db(params)
+

@@ -187,17 +187,16 @@ class LockedDownloader(object):
             logger.info("Download lock released")
 
 
-# Will create sftp connection to storage server
-# Takes object main_cfg which is loaded
-# configuration file. Config must contain
-# section Storage with fields
-# Address - IP address or host
-# Port - port
-# Credentials-file - path to file with login information
-#   Must contain section Credentials with
-#   fields Username, Private-key-file
-#   (private part of key pair) and Private-key-password
-def create_sftp_storage_conn(main_cfg):
+class SSHParams(object):
+    def __init__(self, host="127.0.0.1", port=22, user="rtt", pkey_file=None, pkey_pass=None):
+        self.host = host
+        self.port = port
+        self.user = user
+        self.pkey_file = pkey_file
+        self.pkey_pass = pkey_pass
+
+
+def load_ssh_params(main_cfg):
     try:
         address = main_cfg.get('Storage', 'Address')
         port = int(main_cfg.get('Storage', 'Port'))
@@ -213,18 +212,37 @@ def create_sftp_storage_conn(main_cfg):
         if len(cred_cfg.sections()) == 0:
             print_error("Can't read credentials file: {}".format(storage_cred_file))
             sys.exit(1)
-    
+
         username = cred_cfg.get('Credentials', 'Username')
         pkey_file = cred_cfg.get('Credentials', 'Private-key-file')
         pkey_password = cred_cfg.get('Credentials', 'Private-key-password')
     except BaseException as e:
         print_error("Credentials file: {}".format(e))
-        sys.exit(1)
+        raise ValueError("Could not load SSH params")  # sys.exit(1)
 
+    return SSHParams(host=address, port=port, user=username, pkey_file=pkey_file, pkey_pass=pkey_password)
+
+
+# Will create sftp connection to storage server
+# Takes object main_cfg which is loaded
+# configuration file. Config must contain
+# section Storage with fields
+# Address - IP address or host
+# Port - port
+# Credentials-file - path to file with login information
+#   Must contain section Credentials with
+#   fields Username, Private-key-file
+#   (private part of key pair) and Private-key-password
+def create_sftp_storage_conn(main_cfg):
+    params = load_ssh_params(main_cfg)  # type: SSHParams
+    return create_sftp_storage_conn_params(params)
+
+
+def create_sftp_storage_conn_params(params: SSHParams):
     try:
-        pkey = paramiko.RSAKey.from_private_key_file(pkey_file, pkey_password)
-        transport = paramiko.Transport((address, port))
-        transport.connect(username=username, pkey=pkey)
+        pkey = paramiko.RSAKey.from_private_key_file(params.pkey_file, params.pkey_pass)
+        transport = paramiko.Transport((params.host, params.port))
+        transport.connect(username=params.user, pkey=pkey)
         sftp = paramiko.SFTPClient.from_transport(transport)
         sftp.get_channel().settimeout(60)
         return sftp
