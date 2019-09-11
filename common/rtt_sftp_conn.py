@@ -157,6 +157,7 @@ class LockedDownloader(object):
 
             # After we lock, check for existence. If the file exists.
             if not force and os.path.exists(self.path) and os.path.exists(self.path_downloaded_check):
+                logger.info("File already downloaded")
                 return True
 
             # If forced or primary is missing, delete the downloaded marker.
