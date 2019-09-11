@@ -42,12 +42,16 @@ def delete_cache_files(exp_id):
     if os.path.exists(cache_data_file):
         print_info("Deleting file {}".format(cache_data_file))
         os.remove(cache_data_file)
+        for assoc in rtt_utils.get_associated_files(cache_data_file):
+            rtt_utils.try_remove(assoc)
     else:
         print_info("File was already removed: {}".format(cache_data_file))
 
     if os.path.exists(cache_config_file):
         print_info("Deleting file {}".format(cache_config_file))
         os.remove(cache_config_file)
+        for assoc in rtt_utils.get_associated_files(cache_config_file):
+            rtt_utils.try_remove(assoc)
     else:
         print_info("File was already removed: {}".format(cache_config_file))
 

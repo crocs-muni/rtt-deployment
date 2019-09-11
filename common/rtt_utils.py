@@ -7,6 +7,13 @@ logger = logging.getLogger(__name__)
 EXPIRE_SECONDS_DEFAULT = 60 * 60 * 24
 
 
+def try_remove(path):
+    try:
+        os.unlink(path)
+    except:
+        pass
+
+
 def clean_log_files(log_root_dir, expire_seconds=EXPIRE_SECONDS_DEFAULT):
     cur_time = time.time()
     num_removed = 0
@@ -32,4 +39,9 @@ def clean_log_files(log_root_dir, expire_seconds=EXPIRE_SECONDS_DEFAULT):
                 logger.warning('Exception when analyzing %s' % full_path, e)
 
     return num_removed, size_removed
+
+
+def get_associated_files(path):
+    return [path + '.lock', path + '.lock.2', path + '.downloaded']
+
 
