@@ -156,6 +156,7 @@ class GracefulKiller:
         signal.signal(signal.SIGTERM, self.exit_gracefully)
 
     def exit_gracefully(self, signum, frame):
+        logger.info("Signal received: %s, frame: %s" % (signum, frame))
         self.kill_now = True
 
     def is_killed(self):
