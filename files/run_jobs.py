@@ -348,6 +348,19 @@ def get_rtt_root_dir(config_dir):
     return os.sep.join(config_els[:-1 * len(base_els)])
 
 
+def create_forwarder(main_config, mysql_param=None) -> (rtt_worker.SSHForwarder, MySQLParams):
+    logger.info("Creating SSH forwarder to mysql server")
+    ssh_param = ssh_load_params(main_config)
+    mysql_param = mysql_param if mysql_param else mysql_load_params(main_config)
+    forwarder = rtt_worker.SSHForwarder(ssh_params=ssh_param,
+                                        remote_server=mysql_param.host,
+                                        remote_port=mysql_param.port)
+    forwarder.start()
+    mysql_param.host = '127.0.0.1'
+    mysql_param.port = forwarder.local_port
+    return forwarder, mysql_param
+
+
 #################
 # MAIN FUNCTION #
 #################
@@ -370,7 +383,7 @@ def main():
                         help='Worker longterm type')
     parser.add_argument('--deactivate', dest='deactivate', default=None, type=int,
                         help='Deactivate after worker is ending')
-    parser.add_argument('--location', dest='location', default=None, type=int,
+    parser.add_argument('--location', dest='location', default=None,
                         help='Worker location info')
     parser.add_argument('--aux', dest='aux', default=None, type=int,
                         help='Worker aux info to store to the DB')
@@ -388,6 +401,8 @@ def main():
                         help='MySQL host override')
     parser.add_argument('--db-port', dest='db_port', default=None, type=int,
                         help='MySQL port override')
+    parser.add_argument('--forwarded-mysql', dest='forwarded_mysql', default=None, type=int,
+                        help='Use SSH-forwarded MySQL connection')
     parser.add_argument('config', default=None,
                         help='Config file')
     args = parser.parse_args()
@@ -435,7 +450,13 @@ def main():
     ##########################
     # Connecting to database #
     ##########################
-    db = create_mysql_db_conn(main_cfg, host_override=args.db_host, port_override=args.db_port)
+    mysql_forwarder = None
+    mysql_params = mysql_load_params(main_cfg, host_override=args.db_host, port_override=args.db_port)
+    if args.forwarded_mysql:
+        mysql_forwarder, mysql_params = create_forwarder(main_cfg, mysql_param=mysql_params)
+        logger.info("Using forwarded mysql: %s:%s" % (mysql_params.host, mysql_params.port))
+
+    db = connect_mysql_db(mysql_params)
     cursor = db.cursor()
 
     ##########################
@@ -494,7 +515,7 @@ def main():
                     raise
 
             fetch_data(job_info.experiment_id, sftp)
-            rtt_args = get_rtt_arguments(job_info, mysql_host=args.db_host, mysql_port=args.db_port)
+            rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host, mysql_port=mysql_params.port)
             rtt_env = {'LD_LIBRARY_PATH': rtt_utils.extend_lib_path(os.path.dirname(rtt_binary))}
 
             print_info("Executing job: job_id {}, experiment_id {}"
@@ -544,6 +565,8 @@ def main():
             try_clean_cache(main_cfg_file)
         if args.clean_logs:
             try_clean_logs(rtt_log_dir)
+        if mysql_forwarder:
+            mysql_forwarder.shutdown()
 
         logger.info("System exit, terminating")
         print_info("Terminating.")
@@ -557,6 +580,10 @@ def main():
         cursor.close()
         db.close()
         os.umask(old_mask)
+
+        if mysql_forwarder:
+            mysql_forwarder.shutdown()
+
         sys.exit(1)
 
 

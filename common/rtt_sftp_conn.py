@@ -196,7 +196,7 @@ class SSHParams(object):
         self.pkey_pass = pkey_pass
 
 
-def load_ssh_params(main_cfg):
+def ssh_load_params(main_cfg):
     try:
         address = main_cfg.get('Storage', 'Address')
         port = int(main_cfg.get('Storage', 'Port'))
@@ -234,7 +234,7 @@ def load_ssh_params(main_cfg):
 #   fields Username, Private-key-file
 #   (private part of key pair) and Private-key-password
 def create_sftp_storage_conn(main_cfg):
-    params = load_ssh_params(main_cfg)  # type: SSHParams
+    params = ssh_load_params(main_cfg)  # type: SSHParams
     return create_sftp_storage_conn_params(params)
 
 

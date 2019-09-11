@@ -24,7 +24,7 @@ class MySQLParams(object):
         self.password = password
 
 
-def mysql_load_params(main_cfg, host_override=None, port_override=None):
+def mysql_load_params(main_cfg, host_override=None, port_override=None) -> MySQLParams:
     try:
         name = main_cfg.get('MySQL-Database', 'Name')
         address = main_cfg.get('MySQL-Database', 'Address')
