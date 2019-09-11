@@ -260,3 +260,4 @@ class AsyncRunner:
         self.thread = threading.Thread(target=self.run, args=())
         self.thread.setDaemon(False)
         self.thread.start()
+        self.is_running = True
