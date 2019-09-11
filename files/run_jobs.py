@@ -260,6 +260,26 @@ def try_clean_logs(log_dir):
         logger.error("Log dir cleanup exception", e)
 
 
+def try_finalize_experiments(connection):
+    sql_get_running_exps = "SELECT id FROM experiments WHERE status='running'"
+    sql_upd_experiment_finished = "UPDATE experiments SET  run_finished=NOW(), status='finished' WHERE id=%s"
+
+    try:
+        cursor = connection.cursor()
+        cursor.execute(sql_get_running_exps)
+        logger.info("Experiment finalize check for %s records" % cursor.rowcount)
+
+        for row in cursor.fetchall():
+            eid = row[0]
+            efinished = experiment_finished(eid, connection)
+            if efinished:
+                logger.info("Finishing experiment %s" % eid)
+                cursor.execute(sql_upd_experiment_finished, (eid,))
+
+    except Exception as e:
+        logger.error("Exception in finalizing experiments: %s" % e, e)
+
+
 def send_email_to_author(exp_id, connection):
     cursor = connection.cursor()
     cursor.execute("SELECT author_email, id, name, created, config_file, data_file, data_file_sha256 "
@@ -356,6 +376,10 @@ def main():
                         help='Clean cache after script termination')
     parser.add_argument('--clean-logs', dest='clean_logs', default=None, type=int,
                         help='Clean experiment logs after termination')
+    parser.add_argument('--db-host', dest='db_host', default=None,
+                        help='MySQL host override')
+    parser.add_argument('--db-port', dest='db_port', default=None, type=int,
+                        help='MySQL port override')
     parser.add_argument('config', default=None,
                         help='Config file')
     args = parser.parse_args()
@@ -403,7 +427,7 @@ def main():
     ##########################
     # Connecting to database #
     ##########################
-    db = create_mysql_db_conn(main_cfg)
+    db = create_mysql_db_conn(main_cfg, host_override=args.db_host, port_override=args.db_port)
     cursor = db.cursor()
 
     ##########################
@@ -440,6 +464,7 @@ def main():
         # Otherwise loop is without break, so code will always
         # jump into SystemExit catch
         while True:
+            raise SystemExit()
             if killer.is_killed():
                 logger.info("Terminating due to kill")
                 raise SystemExit()
@@ -496,8 +521,8 @@ def main():
 
     except SystemExit as e:
         logger.error(e)
-        logger.info("System exit, terminating")
-        print_info("Terminating.")
+
+        try_finalize_experiments(db)
         if args.deactivate:
             deactivate_worker(db, backend_data)
 
@@ -510,6 +535,8 @@ def main():
         if args.clean_logs:
             try_clean_logs(rtt_log_dir)
 
+        logger.info("System exit, terminating")
+        print_info("Terminating.")
         os.umask(old_mask)
 
     except BaseException as e:
