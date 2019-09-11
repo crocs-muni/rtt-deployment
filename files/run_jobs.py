@@ -23,6 +23,7 @@ import requests
 import logging
 import coloredlogs
 import traceback
+import signal
 from common.clilogging import *
 from common.rtt_db_conn import *
 from common.rtt_sftp_conn import *
@@ -199,25 +200,11 @@ def fetch_data(experiment_id, sftp, force=False):
     cache_data_path = get_data_path(cache_data_dir, experiment_id)
     cache_config_path = get_config_path(cache_config_dir, experiment_id)
 
-    if not os.path.exists(cache_data_path) or force:
-        print_info("Downloading remote file {} into {}"
-                   .format(storage_data_path, cache_data_path))
-        downloader = SftpDownloader(sftp, critical_speed=1024, critical_time_zero_bytes=30)
-        downloader.get(storage_data_path, cache_data_path)
-        # sftp.get(storage_data_path, cache_data_path)
-        print_info("Download complete.")
-    else:
-        print_info("File {} is already in cache.".format(cache_data_path))
+    downloader = LockedDownloader(sftp, cache_data_path)
+    downloader.download(storage_data_path, force=force)
 
-    if not os.path.exists(cache_config_path) or force:
-        print_info("Downloading remote file {} into {}"
-                   .format(storage_config_path, cache_config_path))
-        downloader = SftpDownloader(sftp, critical_speed=1024, critical_time_zero_bytes=30)
-        downloader.get(storage_config_path, cache_config_path)
-        # sftp.get(storage_config_path, cache_config_path)
-        print_info("Download complete.")
-    else:
-        print_info("File {} is already in cache.".format(cache_config_path))
+    downloader = LockedDownloader(sftp, cache_config_path)
+    downloader.download(storage_config_path, force=force)
 
 
 def get_data_path(data_dir, experiment_id):
@@ -435,6 +422,7 @@ def main():
 
     # Ensure the worker is stored in the database so we can reference it
     ensure_backend_record(db, backend_data)
+    killer = rtt_utils.GracefulKiller()
 
     ############################################################
     # Execution try block. If error happens during execution   #
@@ -451,6 +439,10 @@ def main():
         # Otherwise loop is without break, so code will always
         # jump into SystemExit catch
         while True:
+            if killer.is_killed():
+                logger.info("Terminating due to kill")
+                raise SystemExit()
+
             # Check if we have enough time to run
             if args.run_time and time.time() - time_start < max_sec_per_test:
                 logger.info("Time remaining: %s, terminating" % (time.time() - time_start))

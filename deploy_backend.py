@@ -167,6 +167,7 @@ def main():
         install_python_pkg("requests")
         install_python_pkg("shellescape")
         install_python_pkg("coloredlogs")
+        install_python_pkg("py-filelock")
 
         # Get current versions of needed tools from git
         # Statistical batteries

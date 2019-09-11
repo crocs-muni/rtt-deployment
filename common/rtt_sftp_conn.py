@@ -6,6 +6,7 @@ import os
 import time
 from common.clilogging import *
 import socket
+from . import rtt_utils
 
 
 class TimeLimitExceeded(Exception):
@@ -23,11 +24,13 @@ class SftpDownloader(object):
         self.critical_speed = critical_speed
         self.critical_time_zero_bytes = critical_time_zero_bytes
         self.stat = None
+        self.callback = None  # (SftpDownloader) -> Void
 
         self.time_started = None
         self.time_transfer = None
         self.bytes_downloaded = 0
         self.last_bytes = 0
+        self.last_speed = 0
         self.num_zero_bytes = 0
         self.last_log = 0
         self.first_zero_bytes_time = None
@@ -47,18 +50,6 @@ class SftpDownloader(object):
 
     def stat_file(self, src):
         self.stat = self.sftp.stat(src)
-
-    def callback(self, bytes_transferred, total_bytes):
-        new_bytes = bytes_transferred - self.last_bytes
-        if new_bytes == 0:
-            if self.first_zero_bytes_time is None:
-                self.first_zero_bytes_time = time.time()
-            self.num_zero_bytes += 1
-        else:
-            self.num_zero_bytes = 0
-
-        # time_transfer = (time.time() - self.time_started) + 0.1
-        # speed = bytes_transferred / time_transfer
 
     def get(self, src, dest):
         self.reset()
@@ -81,6 +72,10 @@ class SftpDownloader(object):
             while self.bytes_downloaded <= self.file_size:
                 self.time_transfer = (time.time() - self.time_started) + 0.1
                 speed = self.bytes_downloaded / self.time_transfer
+                self.last_speed = speed
+
+                if self.callback:
+                    self.callback(self)
 
                 if time.time() - self.last_log > 30:
                     logger.debug("Download progress, time: %.2f, speed: %s, downloaded %s/%s"
@@ -131,6 +126,60 @@ class SftpDownloader(object):
 
         return success
         #return self.sftp.get(src, dest, callback=self.callback)
+
+
+class LockedDownloader(object):
+    def __init__(self, sftp, path, acquire_timeout=60*60*8):
+        self.sftp = sftp
+        self.path = path  # Local path to download to
+        self.path_downloaded_check = path + '.downloaded'
+        self.locker = rtt_utils.FileLocker(self.path + '.lock', acquire_timeout=acquire_timeout)
+        self.last_touch = 0
+
+    def callback(self, downloader):
+        tnow = time.time()
+        df = tnow - self.last_touch
+        if df > 2:
+            self.locker.touch()
+            self.last_touch = tnow
+
+    def download(self, src, force=False):
+        # Downloads src to the self.path
+        # Lock first to check for the presence, need to lock to avoid race conditions,
+        # other workers may be downloading the same file right now so file existence check would pass
+        self.locker.acquire()
+        try:
+            # Locks eventually, timeout is 8 hours so it should happen only in very rare cases which aborts
+            # the execution - exception propagates up as we don't know how to handle this at this
+            # level of abstraction
+
+            # After we lock, check for existence. If the file exists.
+            if not force and os.path.exists(self.path) and os.path.exists(self.path_downloaded_check):
+                return True
+
+            # If forced or primary is missing, delete the downloaded marker.
+            try:
+                os.unlink(self.path_downloaded_check)
+            except:
+                pass
+
+            # Otherwise, download the file with lock touching.
+            logger.info("Downloading remote file {} into {}".format(src, self.path))
+            downloader = SftpDownloader(self.sftp, critical_speed=1024, critical_time_zero_bytes=30)
+            downloader.callback = self.callback
+            downloader.get(src, self.path)
+
+            # Download existence touch file
+            # If downloader is terminated in the middle of the download, the download file is still there
+            # but lock is expired, so we would manage to acquire the lock and check for file existence.
+            # Thus we need this special flag file.
+            with open(self.path_downloaded_check, 'a'):
+                pass
+
+            logger.info("Download complete.")
+            return True
+        finally:
+            self.locker.release()
 
 
 # Will create sftp connection to storage server
