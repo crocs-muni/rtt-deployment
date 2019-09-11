@@ -369,6 +369,7 @@ def main():
     old_mask = os.umask(0o007)
     main_cfg_file = args.config
     time_start = time.time()
+    rtt_utils.install_filelock_filter()
     
     ###################################
     # Reading configuration from file #

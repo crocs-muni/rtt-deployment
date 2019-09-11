@@ -147,8 +147,10 @@ class LockedDownloader(object):
         # Downloads src to the self.path
         # Lock first to check for the presence, need to lock to avoid race conditions,
         # other workers may be downloading the same file right now so file existence check would pass
+        logger.info("Locking the download lock %s" % self.locker.path)
         self.locker.acquire()
         try:
+            logger.info("Download lock %s acquired" % self.locker.path)
             # Locks eventually, timeout is 8 hours so it should happen only in very rare cases which aborts
             # the execution - exception propagates up as we don't know how to handle this at this
             # level of abstraction
@@ -180,6 +182,7 @@ class LockedDownloader(object):
             return True
         finally:
             self.locker.release()
+            logger.info("Download lock released")
 
 
 # Will create sftp connection to storage server

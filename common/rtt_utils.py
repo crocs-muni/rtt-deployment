@@ -103,7 +103,7 @@ class FileLocker(object):
 
         # Try normal acquisition on the primary file
         try:
-            self.primary_locker.acquire()
+            self.primary_locker.acquire(self.lock_timeout, poll_intervall=0.5)
             self.touch()
             return True
 
@@ -160,3 +160,31 @@ class GracefulKiller:
 
     def is_killed(self):
         return self.kill_now
+
+
+class FileLockLogFilter(logging.Filter):
+    def __init__(self, name="", *args, **kwargs):
+        self.namex = name
+        logging.Filter.__init__(self, *args, **kwargs)
+
+    def filter(self, record):
+        if record.levelno != logging.DEBUG:
+            return 1
+
+        try:
+            # Parse messages are too verbose, skip.
+            if record.name == "filelock":
+                return 0
+
+            return 1
+
+        except Exception as e:
+            logger.error("Exception in log filtering: %s" % e)
+
+        return 1
+
+
+def install_filelock_filter():
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(FileLockLogFilter("hnd"))
+    logging.getLogger().addFilter(FileLockLogFilter("root"))
