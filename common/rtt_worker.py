@@ -9,10 +9,12 @@ import threading
 import time
 import sys
 import os
+import paramiko
+import sshtunnel
 from shlex import quote
 import shellescape
 from sarge import Capture, Feeder, run
-
+from . import rtt_sftp_conn
 
 logger = logging.getLogger(__name__)
 
@@ -262,3 +264,57 @@ class AsyncRunner:
         self.thread.setDaemon(False)
         self.thread.start()
         self.is_running = True
+
+
+class SSHForwarder:
+    def __init__(self, ssh_params: rtt_sftp_conn.SSHParams, remote_server: str, remote_port: int, local_port=None):
+        self.ssh_params = ssh_params
+        self.remote_server = remote_server
+        self.remote_port = remote_port
+        self.local_port = local_port
+
+        self.is_running = False
+        self.terminating = False
+        self.thread = None
+
+    def run(self):
+        logger.info("Establishing SSH tunnel...")
+        local_args = {} if not self.local_port else {'local_bind_address': ('0.0.0.0', self.local_port)}
+        with sshtunnel.open_tunnel(
+                (self.ssh_params.host, self.ssh_params.port),
+                ssh_username=self.ssh_params.user,
+                ssh_pkey=self.ssh_params.pkey_file,
+                ssh_private_key_password=self.ssh_params.pkey_pass,
+                remote_bind_address=(self.remote_server, self.remote_port),
+                **local_args
+        ) as tunnel:
+            self.local_port = tunnel.local_bind_port
+            self.is_running = True
+            logger.info("SSH tunnel established, port: %s" % self.local_port)
+
+            while not self.terminating:
+                time.sleep(0.5)
+
+            self.is_running = False
+            logger.info("Closing SSH tunnel")
+
+    def start(self):
+        self.thread = threading.Thread(target=self.run, args=())
+        self.thread.setDaemon(False)
+        self.thread.start()
+        self.terminating = False
+        self.is_running = False
+        while not self.is_running:
+            time.sleep(0.1)
+        return self
+
+    def shutdown(self):
+        if not self.is_running:
+            return
+        self.terminating = True
+        time.sleep(1)
+
+        # Terminating with sigint
+        logger.info("Waiting for ssh tunnel to terminate...")
+        while self.is_running:
+            time.sleep(0.1)
