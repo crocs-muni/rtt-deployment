@@ -88,7 +88,7 @@ def escape_shell(inp):
 
 
 class AsyncRunner:
-    def __init__(self, cmd, args=None, stdout=None, stderr=None, cwd=None, shell=True):
+    def __init__(self, cmd, args=None, stdout=None, stderr=None, cwd=None, shell=True, env=None):
         self.cmd = cmd
         self.args = args
         self.on_finished = None
@@ -100,6 +100,7 @@ class AsyncRunner:
         self.stderr = stderr
         self.cwd = cwd
         self.shell = shell
+        self.env = env
 
         self.using_stdout_cap = True
         self.using_stderr_cap = True
@@ -144,7 +145,7 @@ class AsyncRunner:
             stdout=self.stdout or Capture(timeout=0.1, buffer_size=1),
             stderr=self.stderr or Capture(timeout=0.1, buffer_size=1),
             cwd=self.cwd,
-            env=None,
+            env=self.env,
             shell=self.shell,
             preexec_fn=preexec_function,
         )
