@@ -78,13 +78,14 @@ class SftpDownloader(object):
                     self.callback(self)
 
                 if time.time() - self.last_log > 30:
-                    logger.debug("Download progress, time: %.2f, speed: %s, downloaded %s/%s"
-                                 % (self.time_transfer, speed, self.bytes_downloaded, self.file_size))
+                    logger.debug("Download progress, time: %.2f, speed: %.2f MBps, downloaded %s/%s  %.2f %%"
+                                 % (self.time_transfer, speed / 1024 / 1024, self.bytes_downloaded, self.file_size,
+                                    100.0 * self.bytes_downloaded / self.file_size))
                     self.last_log = time.time()
 
                 if self.critical_speed and self.time_transfer > 60 and speed < self.critical_speed:
-                    logger.info("Critical speed reached after %.2f sec, speed: %s, downloaded %s/%s"
-                                % (self.time_transfer, speed, self.bytes_downloaded, self.file_size))
+                    logger.info("Critical speed reached after %.2f sec, speed: %.2f MBps, downloaded %s/%s"
+                                % (self.time_transfer, speed / 1024 / 1024, self.bytes_downloaded, self.file_size))
                     break
 
                 if self.critical_time_zero_bytes and self.first_zero_bytes_time \
@@ -116,7 +117,7 @@ class SftpDownloader(object):
                     time.sleep(0.1)
 
         logger.info("Download process finished after %.2f sec, downloaded %s/%s, speed: %.2f MBps"
-                    % (self.time_transfer, self.bytes_downloaded, self.file_size, self.bytes_downloaded / self.time_transfer / 1024/1024))
+                    % (self.time_transfer, self.bytes_downloaded, self.file_size, self.bytes_downloaded / self.time_transfer / 1024 / 1024))
 
         success = self.bytes_downloaded >= self.file_size
         if not success:
