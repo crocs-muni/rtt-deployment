@@ -100,6 +100,8 @@ def clean_caches(main_cfg_file):
 
     try:
         for data_file in os.listdir(cache_data_dir):
+            if not data_file.endswith('.bin'):
+                continue
             exp_id = int(os.path.splitext(os.path.basename(data_file))[0])
             cursor.execute("SELECT status FROM experiments WHERE id=%s",
                            (exp_id,))
