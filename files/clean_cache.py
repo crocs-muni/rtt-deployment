@@ -72,7 +72,7 @@ def get_rtt_root_dir(config_dir):
     return os.sep.join(config_els[:-1 * len(base_els)])
 
 
-def clean_caches(main_cfg_file):
+def clean_caches(main_cfg_file, mysql_params=None):
     global cache_data_dir
     global cache_config_dir
 
@@ -95,7 +95,10 @@ def clean_caches(main_cfg_file):
 
     rtt_root_dir = get_rtt_root_dir(cache_config_dir)
     rtt_log_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.EXEC_LOGS_TOP_DIR)
-    db = create_mysql_db_conn(main_cfg)
+
+    mysql_params = mysql_params if mysql_params else \
+        mysql_load_params(main_cfg)
+    db = connect_mysql_db(mysql_params)
     cursor = db.cursor()
 
     try:

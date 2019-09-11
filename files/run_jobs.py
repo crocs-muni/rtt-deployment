@@ -247,11 +247,11 @@ def experiment_finished(exp_id, connection):
     return True
 
 
-def try_clean_cache(config):
+def try_clean_cache(config, mysql_params=None):
     try:
         import clean_cache_backend
         logger.info("Cleaning the cache...")
-        clean_cache_backend.clean_caches(config)
+        clean_cache_backend.clean_caches(config, mysql_params=mysql_params)
         logger.info("Cache cleaned up")
 
     except Exception as e:
@@ -493,7 +493,6 @@ def main():
         # Otherwise loop is without break, so code will always
         # jump into SystemExit catch
         while True:
-            raise SystemExit()
             if killer.is_killed():
                 logger.info("Terminating due to kill")
                 raise SystemExit()
@@ -562,7 +561,7 @@ def main():
         sftp.close()
 
         if args.clean_cache:
-            try_clean_cache(main_cfg_file)
+            try_clean_cache(main_cfg_file, mysql_params=mysql_params)
         if args.clean_logs:
             try_clean_logs(rtt_log_dir)
         if mysql_forwarder:
