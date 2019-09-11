@@ -531,7 +531,7 @@ def main():
             async_runner.start()
             while async_runner.is_running:
                 if time.time() - last_heartbeat > 20:
-                    logger.debug('Heartbeat for job id: %s, running for %s s'
+                    logger.debug('Heartbeat for job id: %s, running for %.2f s'
                                  % (job_info.id, time.time() - time_job_start))
 
                     job_heartbeat(db, job_info)
