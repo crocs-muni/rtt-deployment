@@ -469,19 +469,21 @@ def main():
             time_job_start = time.time()
             async_runner = rtt_worker.AsyncRunner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary), shell=False)
             async_runner.log_out_after = False
-            with open(os.devnull, 'w') as file_null:
-                # subprocess.call(shlex.split(rtt_args), stdout=file_null, stderr=subprocess.STDOUT)
-                last_heartbeat = 0
-                async_runner.start()
-                while async_runner.is_running:
-                    if time.time() - last_heartbeat > 20:
-                        logger.debug('Heartbeat for %s' % job_info.id)
-                        job_heartbeat(db, job_info)
-                        last_heartbeat = time.time()
-                    #if time.time() - time_job_start > max_sec_per_test:
-                    #    logger.info('Job is taking too long')
-                    time.sleep(1)
 
+            logger.info("Starting async command")
+            last_heartbeat = 0
+            async_runner.start()
+            while async_runner.is_running:
+                if time.time() - last_heartbeat > 20:
+                    logger.debug('Heartbeat for %s' % job_info.id)
+                    job_heartbeat(db, job_info)
+                    last_heartbeat = time.time()
+
+                #if time.time() - time_job_start > max_sec_per_test:
+                #    logger.info('Job is taking too long')
+                time.sleep(1)
+
+            logger.info("Async command finished")
             print_info("Execution complete.")
             cursor.execute(sql_upd_job_finished, (job_info.id, ))
 
