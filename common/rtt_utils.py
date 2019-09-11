@@ -189,3 +189,8 @@ def install_filelock_filter():
     for handler in logging.getLogger().handlers:
         handler.addFilter(FileLockLogFilter("hnd"))
     logging.getLogger().addFilter(FileLockLogFilter("root"))
+
+
+def extend_lib_path(path):
+    ld_path = os.getenv('LD_LIBRARY_PATH', None)
+    return '%s:%s' % (ld_path, path) if ld_path else path

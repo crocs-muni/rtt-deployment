@@ -215,13 +215,21 @@ def get_config_path(config_dir, experiment_id):
     return os.path.join(config_dir, "{}.json".format(experiment_id))
 
 
-def get_rtt_arguments(job_info):
-    return "{} -b {} -c {} -f {} -r db_mysql --eid {}" \
+def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=None):
+    args = "{} -b {} -c {} -f {} -r db_mysql --eid {}" \
         .format(rtt_binary,
                 job_info.battery,
                 get_config_path(cache_config_dir, job_info.experiment_id),
                 get_data_path(cache_data_dir, job_info.experiment_id),
                 job_info.experiment_id)
+
+    if rtt_config:
+        args += ' -s %s' % rtt_config
+    if mysql_host:
+        args += ' --db-host %s' % mysql_host
+    if mysql_port:
+        args += ' --db-port %s' % mysql_port
+    return args
 
 
 def experiment_finished(exp_id, connection):
@@ -486,13 +494,16 @@ def main():
                     raise
 
             fetch_data(job_info.experiment_id, sftp)
-            rtt_args = get_rtt_arguments(job_info)
+            rtt_args = get_rtt_arguments(job_info, mysql_host=args.db_host, mysql_port=args.db_port)
+            rtt_env = {'LD_LIBRARY_PATH': rtt_utils.extend_lib_path(os.path.dirname(rtt_binary))}
+
             print_info("Executing job: job_id {}, experiment_id {}"
                        .format(job_info.id, job_info.experiment_id))
             print_info("CMD: {}".format(rtt_args))
 
             time_job_start = time.time()
-            async_runner = rtt_worker.AsyncRunner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary), shell=False)
+            async_runner = rtt_worker.AsyncRunner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary),
+                                                  shell=False, env=rtt_env)
             async_runner.log_out_after = False
 
             logger.info("Starting async command")
@@ -500,12 +511,11 @@ def main():
             async_runner.start()
             while async_runner.is_running:
                 if time.time() - last_heartbeat > 20:
-                    logger.debug('Heartbeat for %s' % job_info.id)
+                    logger.debug('Heartbeat for job id: %s, running for %s s'
+                                 % (job_info.id, time.time() - time_job_start))
+
                     job_heartbeat(db, job_info)
                     last_heartbeat = time.time()
-
-                #if time.time() - time_job_start > max_sec_per_test:
-                #    logger.info('Job is taking too long')
                 time.sleep(1)
 
             logger.info("Async command finished")
