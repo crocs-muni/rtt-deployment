@@ -23,6 +23,7 @@ import requests
 import logging
 import coloredlogs
 import traceback
+import random
 import socket
 import signal
 from common.clilogging import *
@@ -582,7 +583,7 @@ def main():
         except Exception as e:
             db = None
             logger.error("Error in starting mysql connection, iter: %s, err: %s" % (conn_retry, e))
-            time.sleep(2 + conn_retry * 0.2)
+            time.sleep(2 + conn_retry * 0.2 + random.randrange(0, 2000) / 1000.0)
 
     if not db:
         raise ValueError("Could not connect to the MySQL")
@@ -602,7 +603,7 @@ def main():
         except Exception as e:
             sftp = None
             logger.error("Error in starting sftp connection, iter: %s, err: %s" % (conn_retry, e))
-            time.sleep(2 + conn_retry * 0.2)
+            time.sleep(2 + conn_retry * 0.2 + random.randrange(0, 2000) / 1000.0)
 
     if not sftp:
         raise ValueError("Could not create SFTP connection")
