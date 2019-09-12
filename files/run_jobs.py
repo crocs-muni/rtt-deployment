@@ -440,7 +440,7 @@ def main():
                         help='Deactivate after worker is ending')
     parser.add_argument('--location', dest='location', default=None,
                         help='Worker location info')
-    parser.add_argument('--aux', dest='aux', default=None, type=int,
+    parser.add_argument('--aux', dest='aux', default=None,
                         help='Worker aux info to store to the DB')
     parser.add_argument('--run-time', dest='run_time', default=None, type=int,
                         help='Number of seconds the script will run since start')
