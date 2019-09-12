@@ -233,6 +233,18 @@ def ensure_backend_record(connection, backend_data):
     return backend_data
 
 
+def refresh_backend_record(connection, backend_data: BackendData):
+    cursor = connection.cursor()
+    try:
+        sql_upd_seen = """UPDATE workers SET worker_last_seen=NOW(), worker_active=1 WHERE id=%s"""
+        cursor.execute(sql_upd_seen, (backend_data.id_key,))
+        connection.commit()
+        return backend_data
+
+    except Exception as e:
+        logger.error("Exception in worker rec refresh: %s" % e)
+
+
 def fetch_data(experiment_id, sftp, force=False):
     storage_data_path = get_data_path(storage_data_dir, experiment_id)
     storage_config_path = get_config_path(storage_config_dir, experiment_id)
@@ -648,6 +660,9 @@ def main():
                 if time_left < max_sec_per_test:
                     logger.info("Time running: %.2f remaining: %.2f, terminating" % (time_running, time_left))
                     raise SystemExit()
+
+            # refresh worker keep-alive
+            refresh_backend_record(db, backend_data)
 
             # If we should spend all allocated time ignore the exit
             job_info = None
