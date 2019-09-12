@@ -9,6 +9,10 @@ import threading
 import time
 import sys
 import os
+import random
+import socket
+import typing
+import tempfile
 import paramiko
 import sshtunnel
 from shlex import quote
@@ -58,7 +62,7 @@ def install_sarge_filter():
     logging.getLogger().addFilter(SargeLogFilter("root"))
 
 
-def sarge_sigint(proc, sig=signal.SIGINT):
+def sarge_sigint(proc, sig=signal.SIGTERM):
     """
     Sends sigint to sarge process
     :return:
@@ -95,6 +99,7 @@ class AsyncRunner:
         self.args = args
         self.on_finished = None
         self.on_output = None
+        self.on_tick = None
         self.no_log_just_write = False
         self.log_out_during = True
         self.log_out_after = True
@@ -109,6 +114,8 @@ class AsyncRunner:
         self.ret_code = None
         self.out_acc = []
         self.err_acc = []
+        self.feeder = None
+        self.proc = None
         self.is_running = False
         self.terminating = False
         self.thread = None
@@ -137,12 +144,12 @@ class AsyncRunner:
 
         self.using_stdout_cap = self.stdout is None
         self.using_stderr_cap = self.stderr is None
-        feeder = Feeder()
+        self.feeder = Feeder()
 
         logger.info("Starting command %s in %s" % (cmd, self.cwd))
         p = run(
             cmd,
-            input=feeder,
+            input=self.feeder,
             async_=True,
             stdout=self.stdout or Capture(timeout=0.1, buffer_size=1),
             stderr=self.stderr or Capture(timeout=0.1, buffer_size=1),
@@ -152,6 +159,7 @@ class AsyncRunner:
             preexec_fn=preexec_function,
         )
 
+        self.proc = p
         self.ret_code = 1
         self.out_acc, self.err_acc = [], []
         out_cur, err_cur = [""], [""]
@@ -208,6 +216,9 @@ class AsyncRunner:
                     if err:
                         add_output([err], True)
 
+                if self.on_tick:
+                    self.on_tick(self)
+
                 p.commands[0].poll()
                 if self.terminating and p.commands[0].returncode is None:
                     logger.info("Terminating by sigint %s" % p.commands[0])
@@ -215,6 +226,7 @@ class AsyncRunner:
                     logger.info("Sigint sent")
                     p.close()
                     logger.info("Process closed")
+
                 if (self.using_stdout_cap and not out) or (self.using_stderr_cap and err):
                     continue
                 time.sleep(0.01)
@@ -257,13 +269,18 @@ class AsyncRunner:
         self.terminating = True
         while self.is_running:
             time.sleep(0.1)
+        logger.info("Program terminated")
 
     def start(self):
         install_sarge_filter()
         self.thread = threading.Thread(target=self.run, args=())
         self.thread.setDaemon(False)
         self.thread.start()
-        self.is_running = True
+        self.terminating = False
+        self.is_running = False
+        while not self.is_running:
+            time.sleep(0.1)
+        return self
 
 
 class SSHForwarder:
@@ -272,6 +289,17 @@ class SSHForwarder:
         self.remote_server = remote_server
         self.remote_port = remote_port
         self.local_port = local_port
+
+    def start(self):
+        raise ValueError('Not implemented')
+
+    def shutdown(self):
+        raise ValueError('Not implemented')
+
+
+class SSHForwarderPython(SSHForwarder):
+    def __init__(self, ssh_params: rtt_sftp_conn.SSHParams, remote_server: str, remote_port: int, local_port=None):
+        super().__init__(ssh_params, remote_server, remote_port, local_port)
 
         self.is_running = False
         self.terminating = False
@@ -318,3 +346,148 @@ class SSHForwarder:
         logger.info("Waiting for ssh tunnel to terminate...")
         while self.is_running:
             time.sleep(0.1)
+
+
+def bind_random_port():
+    for _ in range(5000):
+        port = random.randrange(20000, 65535)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind(('127.0.0.1', port))
+            return s, port
+
+        except socket.error as e:
+            s.close()
+    raise ValueError('Binding took too long')
+
+
+def try_to_connect(host, port, timeout=15):
+    tstart = time.time()
+    while True:
+        if time.time() - tstart > timeout:
+            raise ValueError('Could not connect in time')
+
+        s = socket.socket()
+        s.settimeout(5)
+        try:
+            s.connect((host, port))
+            return s
+        except socket.error as exc:
+            continue
+
+
+class SSHForwarderLinux(SSHForwarder):
+    def __init__(self, ssh_params: rtt_sftp_conn.SSHParams, remote_server: str, remote_port: int, local_port=None):
+        super().__init__(ssh_params, remote_server, remote_port, local_port)
+        self.on_bind_error = None
+        self.do_setsid = True
+
+        self.reservation_socket = None
+        self.runner: typing.Optional[AsyncRunner] = None
+        self.ssh_passwd_asked = False
+        self.ssh_passwd_entered = False
+        self.bind_error = False
+        self.ask_pass_path = None
+        self.first_tick = None
+
+    def create_runner(self):
+        if self.local_port is None:
+            self.reservation_socket, self.local_port = bind_random_port()
+            logger.info("Reserving random local port: %s" % self.local_port)
+
+        args = [
+            '-i', '\'%s\'' % self.ssh_params.pkey_file,
+            '-L', '%s:%s:%s' % (self.local_port, self.remote_server, self.remote_port),
+            '-N',
+            '-oLogLevel=error',
+            '-oStrictHostKeyChecking=no',
+            '-oUserKnownHostsFile=/dev/null',
+            '-p', '%s' % self.ssh_params.port,
+            '\'%s\'@%s' % (self.ssh_params.user, self.ssh_params.host)
+        ]
+
+        cmd = 'setsid ssh' if self.do_setsid else 'ssh'
+        env = {
+            'DISPLAY': ':0',
+            'SSH_ASKPASS': self.ask_pass_path
+        }
+
+        logger.info("Creating runner with: %s %s, env: %s" % (cmd, ' '.join(args), env))
+        self.runner = AsyncRunner(cmd, args, shell=True, env=env)
+        self.runner.on_output = self.on_ssh_line
+        self.runner.on_tick = self.on_ssh_tick
+        self.runner.on_finished = self.on_ssh_finish
+
+    def on_ssh_line(self, runner, line: str, is_error):
+        low = line.lower().strip()
+        if low.startswith('enter pass'):
+            self.ssh_passwd_asked = True
+
+        if low.startswith('bind: address al'):
+            self.bind_error = True
+            if self.on_bind_error:
+                self.on_bind_error()
+
+    def on_ssh_tick(self, runner):
+        if not self.first_tick:
+            self.first_tick = time.time()
+
+        if time.time() - self.first_tick > 10:
+            self.try_delete_shell_script()
+
+        if self.ssh_passwd_asked and not self.ssh_passwd_entered:
+            self.runner.feeder.feed(self.ssh_params.pkey_pass)
+            self.runner.feeder.feed("\n")
+            self.ssh_passwd_entered = True
+            logger.info("Key password entered")
+
+    def on_ssh_finish(self, runner):
+        logger.info("SSH tunnel finished")
+        self.try_delete_shell_script()
+
+    def create_shell_script(self):
+        old_mask = os.umask(0)
+
+        temp = tempfile.NamedTemporaryFile()
+        self.ask_pass_path = temp.name
+        temp.close()
+
+        logger.info('Creating SSH ask script: %s' % self.ask_pass_path)
+        with open(os.open(self.ask_pass_path, os.O_CREAT | os.O_WRONLY, 0o700), 'w') as fh:
+            fh.write('#!/bin/bash\n')
+            fh.write('echo "%s"\n' % self.ssh_params.pkey_pass)
+            fh.write('/bin/rm "%s" >/dev/null 2>/dev/null\n' % self.ask_pass_path)
+
+        os.umask(old_mask)
+
+    def try_delete_shell_script(self):
+        try:
+            if self.ask_pass_path:
+                logger.info("Deleting ASK pass script %s" % self.ask_pass_path)
+                os.unlink(self.ask_pass_path)
+                self.ask_pass_path = None
+        except:
+            pass
+
+    def start(self):
+        self.create_shell_script()
+        self.create_runner()
+        if self.reservation_socket:
+            self.reservation_socket.close()
+            logger.info("Reservation socket closed, race begins...")
+
+        self.runner.start()
+
+        # Connection test
+        try:
+            s = try_to_connect('127.0.0.1', self.local_port, 15)
+            s.close()
+
+        except Exception as e:
+            logger.error('Could not start SSH port forwarding in the given time limit, aborting execution')
+            self.runner.shutdown()
+            raise ValueError('Could not start SSH tunneling')
+
+    def shutdown(self):
+        self.runner.shutdown()
+

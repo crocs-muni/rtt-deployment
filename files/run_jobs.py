@@ -352,10 +352,12 @@ def create_forwarder(main_config, mysql_param=None) -> (rtt_worker.SSHForwarder,
     logger.info("Creating SSH forwarder to mysql server")
     ssh_param = ssh_load_params(main_config)
     mysql_param = mysql_param if mysql_param else mysql_load_params(main_config)
-    forwarder = rtt_worker.SSHForwarder(ssh_params=ssh_param,
-                                        remote_server=mysql_param.host,
-                                        remote_port=mysql_param.port)
+    forwarder = rtt_worker.SSHForwarderLinux(ssh_params=ssh_param,
+                                             remote_server=mysql_param.host,
+                                             remote_port=mysql_param.port)
     forwarder.start()
+    logger.info("Forwarder started, port: %s" % forwarder.local_port)
+
     mysql_param.host = '127.0.0.1'
     mysql_param.port = forwarder.local_port
     return forwarder, mysql_param
