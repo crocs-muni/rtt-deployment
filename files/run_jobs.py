@@ -570,6 +570,9 @@ def main():
                     continue
                 else:
                     raise
+            except Exception as e:
+                time.sleep(1)
+                continue
 
             fetch_data(job_info.experiment_id, sftp)
             rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host, mysql_port=mysql_params.port)
