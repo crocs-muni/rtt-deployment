@@ -54,7 +54,7 @@ class JobGenerator:
         files = []
         batch_id = int(time.time())
         for idx in range(self.args.num):
-            workid_base = 'worker-%s-%s' % (batch_id, idx)
+            workid_base = 'worker-%s-%04d' % (batch_id, idx)
             worker_id = hashlib.md5(workid_base.encode()).hexdigest()
             worker_name = 'meta:%s:%04d:%s' % (batch_id, idx, worker_id[:8])
             worker_file_base = '%s-%s' % (workid_base, worker_id[:8])
