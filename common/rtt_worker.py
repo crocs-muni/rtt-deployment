@@ -227,6 +227,11 @@ class AsyncRunner:
             self.is_running = True
             self.on_change()
 
+            if p.commands[0] is None:
+                self.is_running = False
+                logger.error("Program could not be started")
+                return
+
             while p.commands[0].returncode is None:
                 if self.using_stdout_cap:
                     out = p.stdout.read(-1, False)
@@ -271,12 +276,14 @@ class AsyncRunner:
             if self.log_out_after:
                 logger.info("Std out: %s" % "\n".join(self.out_acc))
                 logger.info("Error out: %s" % "\n".join(self.err_acc))
-            if self.on_finished:
-                self.on_finished(self)
 
         except Exception as e:
-            logger.error("Exception in wallet RPC command: %s" % e)
-            # self.trace_logger.log(e)
+            self.is_running = False
+            logger.error("Exception in async runner: %s" % e)
+
+        finally:
+            if self.on_finished:
+                self.on_finished(self)
 
     def on_change(self):
         pass
