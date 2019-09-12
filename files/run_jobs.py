@@ -594,6 +594,8 @@ def main():
 
         except Exception as e:
             db = None
+            if mysql_forwarder:
+                mysql_forwarder.shutdown()
             logger.error("Error in starting mysql connection, iter: %s, err: %s" % (conn_retry, e))
             time.sleep(2 + conn_retry * 0.2 + random.randrange(0, 2000) / 1000.0)
 
