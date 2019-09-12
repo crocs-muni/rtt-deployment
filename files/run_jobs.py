@@ -67,6 +67,34 @@ worker_pid = os.getpid()
 ########################
 # Function declaration #
 ########################
+def reset_jobs(connection):
+    cursor = connection.cursor()
+    sql_select_reset_job = \
+        """
+        SELECT id FROM jobs
+        WHERE status='running' 
+          AND run_started > DATE_SUB(NOW(), INTERVAL 3 DAY)
+          AND run_heartbeat < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+          AND retries < 10
+        """
+
+    cursor.execute(sql_select_reset_job)
+    if cursor.rowcount == 0:
+        return
+
+    logger.info("Going to reset %s jobs" % cursor.rowcount)
+    for row in cursor.fetchall():
+        jid = row[0]
+        purge_unfinished_job(connection, jid)
+
+        logger.info("Base job reset %s" % jid)
+        cursor2 = connection.cursor()
+        cursor2.execute("UPDATE jobs set status='pending', retries=retries+1 WHERE id=%s", (jid,))
+
+    connection.commit()
+    logger.info("Jobs cleaned")
+
+
 def get_job_info(connection):
     global backend_data
     cursor = connection.cursor()
@@ -81,17 +109,9 @@ def get_job_info(connection):
         """SELECT id, experiment_id, battery
            FROM jobs
            WHERE status='pending' AND experiment_id=%s"""
-    sql_reset_job = \
-        """
-        UPDATE jobs set status='pending', retries=retries+1
-        WHERE status='running' 
-          AND run_started > DATE_SUB(NOW(), INTERVAL 3 DAY)
-          AND run_heartbeat < DATE_SUB(NOW(), INTERVAL 1 HOUR)
-          AND retries < 10
-        """
 
-    # Job reset
-    cursor.execute(sql_reset_job)
+    # Reset unfinished jobs
+    reset_jobs(connection)
 
     # Looking for jobs whose files are already present in local cache
     cursor.execute("SELECT experiment_id FROM jobs "
@@ -266,6 +286,39 @@ def try_clean_logs(log_dir):
 
     except Exception as e:
         logger.error("Log dir cleanup exception", e)
+
+
+def purge_unfinished_job(connection, job_id):
+    sql_sel = "SELECT id, battery, experiment_id FROM jobs WHERE id=%s"
+    try:
+        cursor = connection.cursor()
+        cursor.execute(sql_sel, (job_id,))
+        if cursor.rowcount == 0:
+            return
+
+        row = cursor.fetchone()
+        eid = row[2]
+        logger.info("Purging job ID: %s, experiment ID: %s" % (job_id, eid))
+
+        exp_batt = rtt_worker.job_battery_to_experiment(row[1])
+        cursor.execute("SELECT id FROM batteries WHERE experiment_id=%s AND name=%s", (eid, exp_batt))
+
+        if cursor.rowcount == 0:
+            logger.info("No batteries results to purge")
+            return
+
+        logger.info("Going to purge %s batteries" % cursor.rowcount)
+        for row in cursor.fetchall():
+            bid = row[0]
+            logger.info("Purging battery results with ID: %s, name: %s" % (bid, exp_batt))
+
+            cursor2 = connection.cursor()
+            cursor2.execute("DELETE FROM batteries WHERE id=%s", (bid,))
+        connection.commit()
+        logger.info("Purge committed")
+
+    except Exception as e:
+        logger.error("Exception in purge_unfinished_job: %s" % e, e)
 
 
 def try_finalize_experiments(connection):
