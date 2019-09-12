@@ -495,7 +495,7 @@ def main():
         backend_data.id = args.id if args.id else main_cfg.get('Backend', 'backend-id')
         backend_data.name = args.name if args.name else main_cfg.get('Backend', 'backend-name', fallback=None)
         backend_data.location = args.location if args.location else main_cfg.get('Backend', 'backend-loc', fallback=None)
-        backend_data.type_longterm = args.longterm if args.longterm else main_cfg.getint('Backend', 'backend-longterm', fallback=False)
+        backend_data.type_longterm = args.longterm if args.longterm is not None else main_cfg.getint('Backend', 'backend-longterm', fallback=False)
         backend_data.aux = args.aux if args.aux else main_cfg.get('Backend', 'backend-aux', fallback=None)
         max_sec_per_test = args.job_time if args.job_time else main_cfg.getint('Backend', 'Maximum-seconds-per-test', fallback=3800)
     except BaseException as e:
