@@ -550,7 +550,10 @@ class SSHForwarderLinux(SSHForwarder):
         if self.pid_path:
             logger.info("PID file found %s, trying to terminate..." % self.pid_path)
             try:
-                pid = int(open(self.pid_path).read().strip())
+                pid = None
+                with open(self.pid_path) as fh:
+                    pid = int(fh.read().strip())
+                
                 logger.info("Sending SIGTERM to PID %s" % pid)
                 os.kill(pid, signal.SIGTERM)
                 time.sleep(2)
