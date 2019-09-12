@@ -224,13 +224,13 @@ class AsyncRunner:
                 time.sleep(0.15)
 
             logger.info("Program started, progs: %s" % len(p.commands))
-            self.is_running = True
-            self.on_change()
-
             if p.commands[0] is None:
                 self.is_running = False
                 logger.error("Program could not be started")
                 return
+
+            self.is_running = True
+            self.on_change()
 
             while p.commands[0].returncode is None:
                 if self.using_stdout_cap:
@@ -257,7 +257,7 @@ class AsyncRunner:
 
                 if (self.using_stdout_cap and not out) or (self.using_stderr_cap and err):
                     continue
-                time.sleep(1.01)
+                time.sleep(0.05)
 
             logger.info("Runner while ended")
             p.wait()
@@ -542,7 +542,7 @@ class SSHForwarderLinux(SSHForwarder):
         # Connection test
         try:
             logger.info("SSH started, waiting for port availability")
-            s = try_to_connect('127.0.0.1', self.local_port, 15)
+            s = try_to_connect('127.0.0.1', self.local_port, 60)
             s.close()
             time.sleep(1)
 
