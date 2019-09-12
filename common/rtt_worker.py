@@ -413,7 +413,7 @@ class SSHForwarderLinux(SSHForwarder):
         self.do_setsid = True
 
         self.reservation_socket = None
-        self.runner: typing.Optional[AsyncRunner] = None
+        self.runner = None  # type: typing.Optional[AsyncRunner]
         self.ssh_passwd_asked = False
         self.ssh_passwd_entered = False
         self.bind_error = False
