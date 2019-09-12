@@ -119,8 +119,7 @@ def get_job_info(connection):
 
     # Looking for jobs whose files are already present in local cache
     cursor.execute("SELECT experiment_id FROM jobs "
-                   "WHERE status='pending' GROUP BY experiment_id "
-                   "FOR UPDATE")
+                   "WHERE status='pending' GROUP BY experiment_id")
 
     # This terminates script if there are no pending jobs
     if cursor.rowcount == 0:
@@ -135,6 +134,11 @@ def get_job_info(connection):
         cache_data = get_data_path(cache_data_dir, experiment_id)
         if os.path.exists(cache_data):
             cursor.execute(sql_sel_job, (experiment_id, ))
+            if cursor.rowcount == 0:
+                connection.commit()
+                logger.info("All pending jobs for cached data are gone, retry later")
+                sys.exit(0)
+
             row = cursor.fetchone()
             job_info = JobInfo(row[0], row[1], row[2])
             cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id))
