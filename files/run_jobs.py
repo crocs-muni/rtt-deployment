@@ -553,9 +553,12 @@ def main():
                 raise SystemExit()
 
             # Check if we have enough time to run
-            if args.run_time and time.time() - time_start < max_sec_per_test:
-                logger.info("Time remaining: %s, terminating" % (time.time() - time_start))
-                raise SystemExit()
+            if args.run_time:
+                time_running = time.time() - time_start
+                time_left = args.run_time - time_running
+                if time_left < max_sec_per_test:
+                    logger.info("Time running: %.2f remaining: %.2f, terminating" % (time_running, time_left))
+                    raise SystemExit()
 
             # If we should spend all allocated time ignore the exit
             job_info = None
