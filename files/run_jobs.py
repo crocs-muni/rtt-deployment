@@ -23,6 +23,7 @@ import requests
 import logging
 import coloredlogs
 import traceback
+import socket
 import signal
 from common.clilogging import *
 from common.rtt_db_conn import *
@@ -580,7 +581,8 @@ def main():
 
     # Get public IP address
     try:
-        backend_data.address = requests.get('https://checkip.amazonaws.com', timeout=30).text.strip()
+        # backend_data.address = requests.get('https://checkip.amazonaws.com', timeout=30).text.strip()
+        backend_data.address = socket.gethostname()
     except Exception as e:
         logger.error("IP fetch exception", e)
 
@@ -624,6 +626,7 @@ def main():
                 else:
                     raise
             except Exception as e:
+                logger.info("Exception in job fetch: %s" % e)
                 time.sleep(1)
                 continue
 
