@@ -145,14 +145,14 @@ def get_job_info(connection):
     # Looking for experiments that have all their jobs set as pending. This will cause that
     # each experiment is computed by single node, given enough experiments are available
     cursor.execute("""SELECT id FROM experiments
-                      WHERE status='pending' FOR UPDATE""")
+                      WHERE status='pending'""")
     if cursor.rowcount != 0:
         row = cursor.fetchone()
         experiment_id = row[0]
         cursor.execute(sql_sel_job, (experiment_id, ))
         if cursor.rowcount == 0:
             connection.commit()
-            logger.info("All jobs are gone, retry later")
+            logger.info("All pending jobs are gone for this experiment, retry later")
             sys.exit(0)
 
         row = cursor.fetchone()
@@ -597,6 +597,7 @@ def main():
     # left with status running. This might cause some problems #
     # in the future (???)                                      #
     ############################################################
+    logger.info("Starting job load loop")
     try:
         # Do this until get_job_info uses sys.exit(0) =>
         # => there are no pending jobs
