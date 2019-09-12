@@ -652,6 +652,10 @@ def main():
                 time.sleep(1)
 
             logger.info("Async command finished")
+            if async_runner.ret_code != 0:
+                logger.error("RTT return code is not zero: %s" % async_runner.ret_code)
+                continue
+
             try_make_finalized(cursor, job_info, db)
             logger.info("Experiment finalized in the DB")
             db.commit()            
