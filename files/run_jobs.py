@@ -580,7 +580,7 @@ def main():
 
     # Get public IP address
     try:
-        backend_data.address = requests.get('https://checkip.amazonaws.com').text.strip()
+        backend_data.address = requests.get('https://checkip.amazonaws.com', timeout=30).text.strip()
     except Exception as e:
         logger.error("IP fetch exception", e)
 
