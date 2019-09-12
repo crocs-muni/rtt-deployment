@@ -537,6 +537,7 @@ class SSHForwarderLinux(SSHForwarder):
             logger.info("SSH started, waiting for port availability")
             s = try_to_connect('127.0.0.1', self.local_port, 15)
             s.close()
+            time.sleep(1)
 
         except Exception as e:
             logger.error('Could not start SSH port forwarding in the given time limit, aborting execution')
