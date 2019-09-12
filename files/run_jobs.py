@@ -565,19 +565,47 @@ def main():
     ##########################
     # Connecting to database #
     ##########################
-    mysql_forwarder = None
-    mysql_params = mysql_load_params(main_cfg, host_override=args.db_host, port_override=args.db_port)
-    if args.forwarded_mysql:
-        mysql_forwarder, mysql_params = create_forwarder(main_cfg, mysql_param=mysql_params)
-        logger.info("Using forwarded mysql: %s:%s" % (mysql_params.host, mysql_params.port))
+    db, mysql_params, mysql_forwarder = None, None, None
 
-    db = connect_mysql_db(mysql_params)
+    # Retry connector to mysql - for cloud workers
+    for conn_retry in range(10):
+        try:
+            mysql_params = mysql_load_params(main_cfg, host_override=args.db_host, port_override=args.db_port)
+            if args.forwarded_mysql:
+                mysql_forwarder, mysql_params = create_forwarder(main_cfg, mysql_param=mysql_params)
+                logger.info("Using forwarded mysql: %s:%s" % (mysql_params.host, mysql_params.port))
+
+            db = connect_mysql_db(mysql_params)
+            logger.info("MySQL connected")
+            break
+
+        except Exception as e:
+            db = None
+            logger.error("Error in starting mysql connection, iter: %s, err: %s" % (conn_retry, e))
+            time.sleep(2 + conn_retry * 0.2)
+
+    if not db:
+        raise ValueError("Could not connect to the MySQL")
+
     cursor = db.cursor()
 
     ##########################
     # Connecting to storage  #
     ##########################
-    sftp = create_sftp_storage_conn(main_cfg)
+    sftp = None
+    for conn_retry in range(10):
+        try:
+            sftp = create_sftp_storage_conn(main_cfg)
+            logger.info("SFTP connection created")
+            break
+
+        except Exception as e:
+            sftp = None
+            logger.error("Error in starting sftp connection, iter: %s, err: %s" % (conn_retry, e))
+            time.sleep(2 + conn_retry * 0.2)
+
+    if not sftp:
+        raise ValueError("Could not create SFTP connection")
 
     # Changing working directory so RTT will find files it needs
     # to run
