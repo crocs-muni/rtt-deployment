@@ -10,6 +10,8 @@ EXPIRE_SECONDS_DEFAULT = 60 * 60 * 24
 
 
 def try_remove(path):
+    if not path:
+        return
     try:
         os.unlink(path)
     except:

@@ -19,8 +19,29 @@ from shlex import quote
 import shellescape
 from sarge import Capture, Feeder, run
 from . import rtt_sftp_conn
+from . import rtt_utils
 
 logger = logging.getLogger(__name__)
+RTT_BATTERIES = {
+    'Dieharder': 'dieharder',
+    'NIST Statistical Testing Suite': 'nist_sts',
+    'TestU01 Alphabit': 'tu01_alphabit',
+    'TestU01 Block Alphabit': 'tu01_blockalphabit',
+    'TestU01 Crush': 'tu01_crush',
+    'TestU01 Rabbit': 'tu01_rabbit',
+    'TestU01 Small Crush': 'tu01_smallcrush',
+}
+
+
+def job_battery_to_experiment(bat):
+    for keys in RTT_BATTERIES:
+        if RTT_BATTERIES[keys] == bat:
+            return keys
+    raise ValueError('Key not found: %s' % bat)
+
+
+def experiment_battery_to_job(bat):
+    return RTT_BATTERIES[bat]
 
 
 class SargeLogFilter(logging.Filter):
@@ -156,7 +177,7 @@ class AsyncRunner:
             cwd=self.cwd,
             env=self.env,
             shell=self.shell,
-            preexec_fn=preexec_function,
+            #preexec_fn=preexec_function,
         )
 
         self.proc = p
@@ -202,6 +223,7 @@ class AsyncRunner:
             while len(p.commands) == 0:
                 time.sleep(0.15)
 
+            logger.info("Program started, progs: %s" % len(p.commands))
             self.is_running = True
             self.on_change()
 
@@ -222,15 +244,17 @@ class AsyncRunner:
                 p.commands[0].poll()
                 if self.terminating and p.commands[0].returncode is None:
                     logger.info("Terminating by sigint %s" % p.commands[0])
-                    sarge_sigint(p.commands[0])
+                    sarge_sigint(p.commands[0], signal.SIGTERM)
+                    sarge_sigint(p.commands[0], signal.SIGINT)
                     logger.info("Sigint sent")
                     p.close()
                     logger.info("Process closed")
 
                 if (self.using_stdout_cap and not out) or (self.using_stderr_cap and err):
                     continue
-                time.sleep(0.01)
+                time.sleep(1.01)
 
+            logger.info("Runner while ended")
             p.wait()
             self.ret_code = p.commands[0].returncode
             if self.using_stdout_cap:
@@ -266,7 +290,6 @@ class AsyncRunner:
 
         # Terminating with sigint
         logger.info("Waiting for program to terminate...")
-        self.terminating = True
         while self.is_running:
             time.sleep(0.1)
         logger.info("Program terminated")
@@ -389,6 +412,11 @@ class SSHForwarderLinux(SSHForwarder):
         self.bind_error = False
         self.ask_pass_path = None
         self.first_tick = None
+        self.script_path = None
+        self.pid_path = None
+
+    def __del__(self):
+        self.shutdown()
 
     def create_runner(self):
         if self.local_port is None:
@@ -403,17 +431,23 @@ class SSHForwarderLinux(SSHForwarder):
             '-oStrictHostKeyChecking=no',
             '-oUserKnownHostsFile=/dev/null',
             '-p', '%s' % self.ssh_params.port,
-            '\'%s\'@%s' % (self.ssh_params.user, self.ssh_params.host)
+            '\'%s\'@%s' % (self.ssh_params.user, self.ssh_params.host),
         ]
 
-        cmd = 'setsid ssh' if self.do_setsid else 'ssh'
+        args_str = ' '.join(args)
+        cmd = 'ssh %s' % args_str
+
+        if self.do_setsid:
+            self.create_shell_run_script(cmd)
+            cmd = 'setsid bash %s' % self.script_path
+
         env = {
             'DISPLAY': ':0',
             'SSH_ASKPASS': self.ask_pass_path
         }
 
-        logger.info("Creating runner with: %s %s, env: %s" % (cmd, ' '.join(args), env))
-        self.runner = AsyncRunner(cmd, args, shell=True, env=env)
+        logger.info("Creating runner with: %s, env: %s" % (cmd, env))
+        self.runner = AsyncRunner(cmd, shell=True, env=env)
         self.runner.on_output = self.on_ssh_line
         self.runner.on_tick = self.on_ssh_tick
         self.runner.on_finished = self.on_ssh_finish
@@ -445,6 +479,26 @@ class SSHForwarderLinux(SSHForwarder):
         logger.info("SSH tunnel finished")
         self.try_delete_shell_script()
 
+    def create_shell_run_script(self, cmd):
+        old_mask = os.umask(0)
+
+        temp = tempfile.NamedTemporaryFile()
+        self.script_path = temp.name
+        temp.close()
+
+        temp = tempfile.NamedTemporaryFile()
+        self.pid_path = temp.name
+        temp.close()
+
+        logger.info('Creating SSH run script: %s, pid file: %s, cmd: %s'
+                    % (self.script_path, self.pid_path, cmd))
+
+        with open(os.open(self.script_path, os.O_CREAT | os.O_WRONLY, 0o700), 'w') as fh:
+            fh.write('#!/bin/bash\n')
+            fh.write('%s &\n' % cmd)
+            fh.write('echo $! > %s\n' % self.pid_path)
+        os.umask(old_mask)
+
     def create_shell_script(self):
         old_mask = os.umask(0)
 
@@ -462,10 +516,10 @@ class SSHForwarderLinux(SSHForwarder):
 
     def try_delete_shell_script(self):
         try:
-            if self.ask_pass_path:
+            if self.ask_pass_path and os.path.exists(self.ask_pass_path):
                 logger.info("Deleting ASK pass script %s" % self.ask_pass_path)
                 os.unlink(self.ask_pass_path)
-                self.ask_pass_path = None
+            self.ask_pass_path = None
         except:
             pass
 
@@ -480,6 +534,7 @@ class SSHForwarderLinux(SSHForwarder):
 
         # Connection test
         try:
+            logger.info("SSH started, waiting for port availability")
             s = try_to_connect('127.0.0.1', self.local_port, 15)
             s.close()
 
@@ -489,5 +544,27 @@ class SSHForwarderLinux(SSHForwarder):
             raise ValueError('Could not start SSH tunneling')
 
     def shutdown(self):
+        logger.info("Shutting down SSH forwarder")
+
+        if self.pid_path:
+            logger.info("PID file found %s, trying to terminate..." % self.pid_path)
+            try:
+                pid = int(open(self.pid_path).read().strip())
+                logger.info("Sending SIGTERM to PID %s" % pid)
+                os.kill(pid, signal.SIGTERM)
+                time.sleep(2)
+
+            except Exception as e:
+                logger.error("Exception when terminating running ssh %s" % e)
+
+        logger.info("SSH runner shutdown")
         self.runner.shutdown()
+
+        logger.info("SSH runner cleanup")
+        rtt_utils.try_remove(self.pid_path)
+        rtt_utils.try_remove(self.script_path)
+        rtt_utils.try_remove(self.ask_pass_path)
+        self.pid_path = None
+        self.script_path = None
+        self.ask_pass_path = None
 
