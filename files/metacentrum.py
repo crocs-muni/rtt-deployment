@@ -56,7 +56,8 @@ class JobGenerator:
         for idx in range(self.args.num):
             workid_base = 'worker-%s-%s' % (batch_id, idx)
             worker_id = hashlib.md5(workid_base.encode()).hexdigest()
-            worker_name = 'meta:%s:%s' % (batch_id, worker_id[:8])
+            worker_name = 'meta:%s:%04d:%s' % (batch_id, idx, worker_id[:8])
+            worker_file_base = '%s-%s' % (workid_base, worker_id[:8])
 
             job_data = JOB_TEMPLATE
             job_data = job_data.replace('{{{NAME}}}', worker_name)
@@ -64,13 +65,13 @@ class JobGenerator:
             job_data = job_data.replace('{{{RUN_TIME}}}', '%s' % (60*60*self.args.hr_job - 60*5))
             job_data = job_data.replace('{{{JOB_TIME}}}', '%s' % self.args.test_time)
             job_data = job_data.replace('{{{LOG_ERR}}}',
-                                        os.path.abspath(os.path.join(log_dir, 'log2-%s.log' % workid_base)))
+                                        os.path.abspath(os.path.join(log_dir, 'log2-%s.log' % worker_file_base)))
             job_data = job_data.replace('{{{LOG_OUT}}}',
-                                        os.path.abspath(os.path.join(log_dir, 'log1-%s.log' % workid_base)))
+                                        os.path.abspath(os.path.join(log_dir, 'log1-%s.log' % worker_file_base)))
             if '{{{' in job_data:
                 raise ValueError('Missed placeholder')
 
-            job_file = os.path.join(self.args.job_dir, 'job-%s.sh' % workid_base)
+            job_file = os.path.join(self.args.job_dir, 'job-%s.sh' % worker_file_base)
             with open(os.open(job_file, os.O_CREAT | os.O_WRONLY, 0o700), 'w') as fh:
                 fh.write(job_data)
 
