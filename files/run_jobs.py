@@ -108,7 +108,7 @@ def get_job_info(connection):
     sql_sel_job = \
         """SELECT id, experiment_id, battery
            FROM jobs
-           WHERE status='pending' AND experiment_id=%s"""
+           WHERE status='pending' AND experiment_id=%s FOR UPDATE"""
 
     # Reset unfinished jobs
     reset_jobs(connection)
@@ -141,7 +141,7 @@ def get_job_info(connection):
     # Looking for experiments that have all their jobs set as pending. This will cause that
     # each experiment is computed by single node, given enough experiments are available
     cursor.execute("""SELECT id FROM experiments
-                      WHERE status='pending'""")
+                      WHERE status='pending' FOR UPDATE""")
     if cursor.rowcount != 0:
         row = cursor.fetchone()
         experiment_id = row[0]
@@ -157,7 +157,7 @@ def get_job_info(connection):
     # started by other nodes before. So now just pick one job and execute him.
     # No need for check for existence, table is locked and check is at the beginning
     cursor.execute("SELECT id, experiment_id, battery "
-                   "FROM jobs WHERE status='pending'")
+                   "FROM jobs WHERE status='pending' FOR UPDATE")
     row = cursor.fetchone()
     job_info = JobInfo(row[0], row[1], row[2])
     cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
