@@ -150,6 +150,7 @@ def get_job_info(connection):
         experiment_id = row[0]
         cursor.execute(sql_sel_job, (experiment_id, ))
         if cursor.rowcount == 0:
+            connection.commit()
             logger.info("All jobs are gone, retry later")
             sys.exit(0)
 
