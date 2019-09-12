@@ -111,7 +111,10 @@ def get_job_info(connection):
            WHERE status='pending' AND experiment_id=%s FOR UPDATE"""
 
     # Reset unfinished jobs
-    reset_jobs(connection)
+    try:
+        reset_jobs(connection)
+    except Exception as e:
+        logger.error("Job reset exception: %s" % e)
 
     # Looking for jobs whose files are already present in local cache
     cursor.execute("SELECT experiment_id FROM jobs "
@@ -146,6 +149,10 @@ def get_job_info(connection):
         row = cursor.fetchone()
         experiment_id = row[0]
         cursor.execute(sql_sel_job, (experiment_id, ))
+        if cursor.rowcount == 0:
+            logger.info("All jobs are gone, retry later")
+            sys.exit(0)
+
         row = cursor.fetchone()
         job_info = JobInfo(row[0], row[1], row[2])
         cursor.execute(sql_upd_experiment_running, (experiment_id, ))
@@ -166,10 +173,15 @@ def get_job_info(connection):
 
 
 def job_heartbeat(connection, job_info):
-    cursor = connection.cursor()
-    sql_upd_job_running = """UPDATE jobs SET run_heartbeat=NOW(), status='running', worker_pid=%s WHERE id=%s"""
-    cursor.execute(sql_upd_job_running, (os.getpid(), job_info.id))
-    connection.commit()
+    for idx in range(15):
+        try:
+            cursor = connection.cursor()
+            sql_upd_job_running = """UPDATE jobs SET run_heartbeat=NOW(), status='running', worker_pid=%s WHERE id=%s"""
+            cursor.execute(sql_upd_job_running, (os.getpid(), job_info.id))
+            connection.commit()
+            return
+        except Exception as e:
+            logger.error("Exception in heartbeat: %s, iter: %s" % (e, idx))
 
 
 def deactivate_worker(connection, backend_data):
@@ -252,6 +264,15 @@ def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=Non
     return args
 
 
+def try_experiment_finished(exp_id, connection):
+    for idx in range(15):
+        try:
+            return experiment_finished(exp_id, connection)
+        except Exception as e:
+            logger.error("Exception in try_experiment_finished: %s, iter: %s" % (e, idx))
+    raise ValueError("Could not set experiment finished")
+
+
 def experiment_finished(exp_id, connection):
     cursor = connection.cursor()
     cursor.execute("""SELECT status FROM jobs
@@ -332,13 +353,46 @@ def try_finalize_experiments(connection):
 
         for row in cursor.fetchall():
             eid = row[0]
-            efinished = experiment_finished(eid, connection)
+            efinished = try_experiment_finished(eid, connection)
             if efinished:
                 logger.info("Finishing experiment %s" % eid)
                 cursor.execute(sql_upd_experiment_finished, (eid,))
 
     except Exception as e:
         logger.error("Exception in finalizing experiments: %s" % e, e)
+
+
+def try_upd_job_finished(cursor, job_info):
+    sql_upd_job_finished = """UPDATE jobs SET run_finished=NOW(), status='finished' WHERE id=%s"""
+    for idx in range(15):
+        try:
+            cursor.execute(sql_upd_job_finished, (job_info.id,))
+            return
+        except Exception as e:
+            logger.error("Exception in try_upd_job_finished: %s" % e, e)
+    raise ValueError("Could not finish try_upd_job_finished")
+
+
+def try_upd_experiment_finished(cursor, job_info):
+    sql_upd_experiment_finished = """UPDATE experiments SET  run_finished=NOW(), status='finished' WHERE id=%s"""
+    for idx in range(15):
+        try:
+            cursor.execute(sql_upd_experiment_finished, (job_info.experiment_id,))
+            return
+        except Exception as e:
+            logger.error("Exception in try_upd_experiment_finished: %s" % e, e)
+    raise ValueError("Could not finish try_upd_experiment_finished")
+
+
+def try_make_finalized(cursor, job_info, db):
+    try_upd_job_finished(cursor, job_info)
+    finished = try_experiment_finished(job_info.experiment_id, db)
+    if finished:
+        try:
+            try_upd_experiment_finished(cursor, job_info)
+            send_email_to_author(job_info.experiment_id, db)
+        except Exception as e:
+            logger.error("Exception in try_make_finalized: %s" % e, e)
 
 
 def send_email_to_author(exp_id, connection):
@@ -541,8 +595,6 @@ def main():
     # in the future (???)                                      #
     ############################################################
     try:
-        sql_upd_job_finished = """UPDATE jobs SET run_finished=NOW(), status='finished' WHERE id=%s"""
-        sql_upd_experiment_finished = """UPDATE experiments SET  run_finished=NOW(), status='finished' WHERE id=%s"""
         # Do this until get_job_info uses sys.exit(0) =>
         # => there are no pending jobs
         # Otherwise loop is without break, so code will always
@@ -600,14 +652,8 @@ def main():
                 time.sleep(1)
 
             logger.info("Async command finished")
-            print_info("Execution complete.")
-            cursor.execute(sql_upd_job_finished, (job_info.id, ))
-
-            finished = experiment_finished(job_info.experiment_id, db)
-            if finished:
-                cursor.execute(sql_upd_experiment_finished, (job_info.experiment_id, ))
-                send_email_to_author(job_info.experiment_id, db)
-
+            try_make_finalized(cursor, job_info, db)
+            logger.info("Experiment finalized in the DB")
             db.commit()            
 
     except SystemExit as e:
