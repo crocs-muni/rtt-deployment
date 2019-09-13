@@ -129,6 +129,7 @@ class AsyncRunner:
         self.cwd = cwd
         self.shell = shell
         self.env = env
+        self.preexec_setgrp = False
 
         self.using_stdout_cap = True
         self.using_stderr_cap = True
@@ -175,6 +176,11 @@ class AsyncRunner:
         self.feeder = Feeder()
 
         logger.info("Starting command %s in %s" % (cmd, self.cwd))
+
+        run_args = {}
+        if self.preexec_setgrp:
+            run_args['preexec_fn'] = preexec_function
+
         p = run(
             cmd,
             input=self.feeder,
@@ -184,7 +190,7 @@ class AsyncRunner:
             cwd=self.cwd,
             env=self.env,
             shell=self.shell,
-            #preexec_fn=preexec_function,
+            **run_args,
         )
 
         self.proc = p
