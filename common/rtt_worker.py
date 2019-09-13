@@ -148,8 +148,9 @@ class AsyncRunner:
             self.run_internal()
         except Exception as e:
             self.is_running = False
-            self.was_running = True
             logger.error("Unexpected exception in runner: %s" % e)
+        finally:
+            self.was_running = True
 
     def run_internal(self):
         def preexec_function():
@@ -284,6 +285,7 @@ class AsyncRunner:
             if self.using_stderr_cap:
                 add_output([p.stderr.read(-1, False)], True)
                 p.stderr.close()
+            self.was_running = True
             self.is_running = False
             self.on_change()
 
@@ -295,10 +297,10 @@ class AsyncRunner:
 
         except Exception as e:
             self.is_running = False
-            self.was_running = True
             logger.error("Exception in async runner: %s" % e)
 
         finally:
+            self.was_running = True
             if self.on_finished:
                 self.on_finished(self)
 
