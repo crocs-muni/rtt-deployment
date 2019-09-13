@@ -583,6 +583,7 @@ def main():
     # Retry connector to mysql - for cloud workers
     for conn_retry in range(10):
         try:
+            logger.info("Connecting to mysql...")
             mysql_params = mysql_load_params(main_cfg, host_override=args.db_host, port_override=args.db_port)
             if args.forwarded_mysql:
                 mysql_forwarder, mysql_params = create_forwarder(main_cfg, mysql_param=mysql_params)
@@ -594,9 +595,10 @@ def main():
 
         except Exception as e:
             db = None
+            logger.error("Error in starting mysql connection, iter: %s, err: %s" % (conn_retry, e))
             if mysql_forwarder:
                 mysql_forwarder.shutdown()
-            logger.error("Error in starting mysql connection, iter: %s, err: %s" % (conn_retry, e))
+
             time.sleep(2 + conn_retry * 0.2 + random.randrange(0, 2000) / 1000.0)
 
     if not db:
@@ -610,6 +612,7 @@ def main():
     sftp = None
     for conn_retry in range(10):
         try:
+            logger.info("Connecting to SFTP...")
             sftp = create_sftp_storage_conn(main_cfg)
             logger.info("SFTP connection created")
             break
@@ -634,6 +637,7 @@ def main():
         logger.error("IP fetch exception", e)
 
     # Ensure the worker is stored in the database so we can reference it
+    logger.info("Checking worker record")
     ensure_backend_record(db, backend_data)
     killer = rtt_utils.GracefulKiller()
 
