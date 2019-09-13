@@ -697,10 +697,13 @@ def main():
             async_runner = rtt_worker.AsyncRunner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary),
                                                   shell=False, env=rtt_env)
             async_runner.log_out_after = False
+            async_runner.preexec_setgrp = True
 
             logger.info("Starting async command")
             last_heartbeat = 0
             async_runner.start()
+            logger.info("Async command started")
+
             while async_runner.is_running:
                 if time.time() - last_heartbeat > 20:
                     logger.debug('Heartbeat for job id: %s, running for %.2f s'

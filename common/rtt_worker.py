@@ -139,6 +139,7 @@ class AsyncRunner:
         self.feeder = None
         self.proc = None
         self.is_running = False
+        self.was_running = False
         self.terminating = False
         self.thread = None
 
@@ -147,6 +148,7 @@ class AsyncRunner:
             self.run_internal()
         except Exception as e:
             self.is_running = False
+            self.was_running = True
             logger.error("Unexpected exception in runner: %s" % e)
 
     def run_internal(self):
@@ -239,6 +241,7 @@ class AsyncRunner:
             logger.info("Program started, progs: %s" % len(p.commands))
             if p.commands[0] is None:
                 self.is_running = False
+                self.was_running = True
                 logger.error("Program could not be started")
                 return
 
@@ -292,6 +295,7 @@ class AsyncRunner:
 
         except Exception as e:
             self.is_running = False
+            self.was_running = True
             logger.error("Exception in async runner: %s" % e)
 
         finally:
@@ -321,7 +325,7 @@ class AsyncRunner:
         self.thread.start()
         self.terminating = False
         self.is_running = False
-        while not self.is_running:
+        while not self.is_running and not self.was_running:
             time.sleep(0.1)
         return self
 
