@@ -246,6 +246,6 @@ def create_sftp_storage_conn_params(params: SSHParams):
         sftp = paramiko.SFTPClient.from_transport(transport)
         sftp.get_channel().settimeout(60)
         return sftp
-    except BaseException as e:
-        print_error("Sftp connection: {}".format(e))
-        sys.exit(1)
+    except Exception as e:
+        logger.error("Sftp connection: %s" % e)
+        raise
