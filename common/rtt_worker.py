@@ -436,6 +436,7 @@ class SSHForwarderLinux(SSHForwarder):
         self.pid_path = None
 
     def __del__(self):
+        logger.info("SSH shutdown on delete (dirty)")
         self.shutdown()
 
     def create_runner(self):
@@ -450,6 +451,7 @@ class SSHForwarderLinux(SSHForwarder):
             '-oLogLevel=error',
             '-oStrictHostKeyChecking=no',
             '-oUserKnownHostsFile=/dev/null',
+            '-o ConnectTimeout=30',
             '-p', '%s' % self.ssh_params.port,
             '\'%s\'@%s' % (self.ssh_params.user, self.ssh_params.host),
         ]
@@ -591,4 +593,5 @@ class SSHForwarderLinux(SSHForwarder):
         self.pid_path = None
         self.script_path = None
         self.ask_pass_path = None
+        logger.info("SSH Shutdown finished")
 
