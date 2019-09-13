@@ -142,6 +142,13 @@ class AsyncRunner:
         self.thread = None
 
     def run(self):
+        try:
+            self.run_internal()
+        except Exception as e:
+            self.is_running = False
+            logger.error("Unexpected exception in runner: %s" % e)
+
+    def run_internal(self):
         def preexec_function():
             os.setpgrp()
 
@@ -232,7 +239,7 @@ class AsyncRunner:
             self.is_running = True
             self.on_change()
 
-            while p.commands[0].returncode is None:
+            while p.commands[0] and p.commands[0].returncode is None:
                 if self.using_stdout_cap:
                     out = p.stdout.read(-1, False)
                     if out:
@@ -261,7 +268,7 @@ class AsyncRunner:
 
             logger.info("Runner while ended")
             p.wait()
-            self.ret_code = p.commands[0].returncode
+            self.ret_code = p.commands[0].returncode if p.commands[0] else -1
             if self.using_stdout_cap:
                 add_output([p.stdout.read(-1, False)])
                 p.stdout.close()
