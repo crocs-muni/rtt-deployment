@@ -27,8 +27,12 @@ CREATE TABLE IF NOT EXISTS jobs (
     worker_id           BIGINT UNSIGNED DEFAULT NULL,
     worker_pid          INT UNSIGNED DEFAULT NULL,
     retries             INT UNSIGNED DEFAULT 0,
+    KEY `jobs_status` (`status`),
+    KEY `experiment_id` (`experiment_id`),
     FOREIGN KEY (experiment_id) REFERENCES experiments(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = INNODB;
+
+-- CREATE INDEX jobs_status ON jobs (status);
 
 -- ALTER TABLE jobs
 -- ADD COLUMN run_heartbeat  DATETIME DEFAULT NULL AFTER experiment_id,
