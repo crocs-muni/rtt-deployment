@@ -701,8 +701,10 @@ def main():
             # If we should spend all allocated time ignore the exit
             job_info = None
             try:
+                logger.info("Loading jobs to process")
                 job_info = get_job_info(db)  # type: JobInfo
             except SystemExit as e:
+                logger.debug("No jobs to process")
                 if args.run_time and args.all_time:
                     rand_sleep()
                     continue
