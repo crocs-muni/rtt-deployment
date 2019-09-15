@@ -640,6 +640,7 @@ def main():
     logger.info("Checking worker record")
     ensure_backend_record(db, backend_data)
     killer = rtt_utils.GracefulKiller()
+    time_last_report = time.time() - 10
 
     ############################################################
     # Execution try block. If error happens during execution   #
@@ -659,6 +660,10 @@ def main():
                 logger.info("Terminating due to kill")
                 raise SystemExit()
 
+            if time.time() - time_last_report > 600:
+                logger.info("Main loop running")
+                time_last_report = time.time()
+
             # Check if we have enough time to run
             if args.run_time:
                 time_running = time.time() - time_start
@@ -673,7 +678,7 @@ def main():
             # If we should spend all allocated time ignore the exit
             job_info = None
             try:
-                job_info = get_job_info(db)
+                job_info = get_job_info(db)  # type: JobInfo
             except SystemExit as e:
                 if args.run_time and args.all_time:
                     time.sleep(1)
@@ -685,6 +690,7 @@ def main():
                 time.sleep(1)
                 continue
 
+            logger.info("Job fetched, ID: %s" % job_info.id)
             fetch_data(job_info.experiment_id, sftp)
             rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host, mysql_port=mysql_params.port)
             rtt_env = {'LD_LIBRARY_PATH': rtt_utils.extend_lib_path(os.path.dirname(rtt_binary))}
@@ -716,6 +722,7 @@ def main():
             logger.info("Async command finished")
             if async_runner.ret_code != 0:
                 logger.error("RTT return code is not zero: %s" % async_runner.ret_code)
+                db.commit()
                 continue
 
             try_make_finalized(cursor, job_info, db)
