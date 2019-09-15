@@ -70,6 +70,10 @@ worker_pid = os.getpid()
 ########################
 # Function declaration #
 ########################
+def rand_sleep(val=2, diff=0.5):
+    time.sleep(val + random.randrange(-diff, diff))
+
+
 def reset_jobs(connection):
     cursor = connection.cursor()
     sql_select_reset_job = \
@@ -118,6 +122,7 @@ def get_job_info(connection):
         reset_jobs(connection)
     except Exception as e:
         logger.error("Job reset exception: %s" % e)
+        rand_sleep()
 
     # Looking for jobs whose files are already present in local cache
     cursor.execute("SELECT experiment_id FROM jobs "
@@ -190,6 +195,7 @@ def job_heartbeat(connection, job_info):
             return
         except Exception as e:
             logger.error("Exception in heartbeat: %s, iter: %s" % (e, idx))
+            rand_sleep()
 
 
 def deactivate_worker(connection, backend_data):
@@ -244,6 +250,7 @@ def refresh_backend_record(connection, backend_data: BackendData):
 
     except Exception as e:
         logger.error("Exception in worker rec refresh: %s" % e)
+        rand_sleep()
 
 
 def fetch_data(experiment_id, sftp, force=False):
@@ -290,6 +297,7 @@ def try_experiment_finished(exp_id, connection):
             return experiment_finished(exp_id, connection)
         except Exception as e:
             logger.error("Exception in try_experiment_finished: %s, iter: %s" % (e, idx))
+            rand_sleep()
     raise ValueError("Could not set experiment finished")
 
 
@@ -317,6 +325,7 @@ def try_clean_cache(config, mysql_params=None):
 
     except Exception as e:
         logger.error("Cache cleanup exception", e)
+        rand_sleep()
 
 
 def try_clean_logs(log_dir):
@@ -327,6 +336,7 @@ def try_clean_logs(log_dir):
 
     except Exception as e:
         logger.error("Log dir cleanup exception", e)
+        rand_sleep()
 
 
 def purge_unfinished_job(connection, job_id):
@@ -360,6 +370,7 @@ def purge_unfinished_job(connection, job_id):
 
     except Exception as e:
         logger.error("Exception in purge_unfinished_job: %s" % e, e)
+        rand_sleep()
 
 
 def try_finalize_experiments(connection):
@@ -380,6 +391,7 @@ def try_finalize_experiments(connection):
 
     except Exception as e:
         logger.error("Exception in finalizing experiments: %s" % e, e)
+        rand_sleep()
 
 
 def try_upd_job_finished(cursor, job_info):
@@ -390,6 +402,7 @@ def try_upd_job_finished(cursor, job_info):
             return
         except Exception as e:
             logger.error("Exception in try_upd_job_finished: %s" % e, e)
+            rand_sleep()
     raise ValueError("Could not finish try_upd_job_finished")
 
 
@@ -401,6 +414,7 @@ def try_upd_experiment_finished(cursor, job_info):
             return
         except Exception as e:
             logger.error("Exception in try_upd_experiment_finished: %s" % e, e)
+            rand_sleep()
     raise ValueError("Could not finish try_upd_experiment_finished")
 
 
@@ -413,6 +427,7 @@ def try_make_finalized(cursor, job_info, db):
             send_email_to_author(job_info.experiment_id, db)
         except Exception as e:
             logger.error("Exception in try_make_finalized: %s" % e, e)
+            rand_sleep()
 
 
 def send_email_to_author(exp_id, connection):
@@ -658,6 +673,7 @@ def main():
     ############################################################
     logger.info("Starting job load loop")
     try:
+        rand_sleep()
         # Do this until get_job_info uses sys.exit(0) =>
         # => there are no pending jobs
         # Otherwise loop is without break, so code will always
@@ -688,13 +704,15 @@ def main():
                 job_info = get_job_info(db)  # type: JobInfo
             except SystemExit as e:
                 if args.run_time and args.all_time:
-                    time.sleep(1)
+                    rand_sleep()
                     continue
+
                 else:
                     raise
+
             except Exception as e:
                 logger.info("Exception in job fetch: %s" % e)
-                time.sleep(1)
+                rand_sleep()
                 continue
 
             logger.info("Job fetched, ID: %s" % job_info.id)
