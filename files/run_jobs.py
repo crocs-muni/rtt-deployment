@@ -71,7 +71,7 @@ worker_pid = os.getpid()
 # Function declaration #
 ########################
 def rand_sleep(val=2, diff=0.5):
-    time.sleep(val + random.randrange(-diff, diff))
+    time.sleep(val + random.randrange(0, 2*diff) - diff)
 
 
 def reset_jobs(connection):
