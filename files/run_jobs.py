@@ -125,13 +125,15 @@ def get_job_info(connection):
         rand_sleep()
 
     # Looking for jobs whose files are already present in local cache
+    time_exp_cached = -time.time()
     cursor.execute("SELECT experiment_id FROM jobs "
                    "WHERE status='pending' GROUP BY experiment_id")
+    time_exp_cached += time.time()
 
     # This terminates script if there are no pending jobs
     if cursor.rowcount == 0:
         connection.commit()
-        print_info("No pending jobs")
+        print_info("No pending jobs, query time: %.2f" % time_exp_cached)
         sys.exit(0)
 
     # Looking for experiments whose data are already cached
@@ -143,7 +145,7 @@ def get_job_info(connection):
             cursor.execute(sql_sel_job, (experiment_id, ))
             if cursor.rowcount == 0:
                 connection.commit()
-                logger.info("All pending jobs for cached data are gone, retry later")
+                logger.info("All pending jobs for cached data are gone, retry later, query time: %.2f" % time_exp_cached)
                 sys.exit(0)
 
             row = cursor.fetchone()
@@ -155,15 +157,18 @@ def get_job_info(connection):
 
     # Looking for experiments that have all their jobs set as pending. This will cause that
     # each experiment is computed by single node, given enough experiments are available
+    time_exp_pending = -time.time()
     cursor.execute("""SELECT id FROM experiments
                       WHERE status='pending'""")
+    time_exp_pending += time.time()
+
     if cursor.rowcount != 0:
         row = cursor.fetchone()
         experiment_id = row[0]
         cursor.execute(sql_sel_job, (experiment_id, ))
         if cursor.rowcount == 0:
             connection.commit()
-            logger.info("All pending jobs are gone for this experiment, retry later")
+            logger.info("All pending jobs are gone for this experiment, retry later, query time: %.2f" % time_exp_pending)
             sys.exit(0)
 
         row = cursor.fetchone()
