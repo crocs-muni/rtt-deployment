@@ -25,6 +25,7 @@ import coloredlogs
 import traceback
 import random
 import hashlib
+import itertools
 import socket
 import signal
 from common.clilogging import *
@@ -516,6 +517,34 @@ def create_forwarder(main_config, mysql_param=None) -> (rtt_worker.SSHForwarder,
     return forwarder, mysql_param
 
 
+def test_rtt_binary_compatibility():
+    for idx in range(3):
+        try:
+            logger.info("Testing RTT binary compatibility...")
+            runner = rtt_worker.get_rtt_runner(rtt_binary, os.path.dirname(rtt_binary))
+            runner.start()
+            tstart = time.time()
+            while runner.is_running and time.time() - tstart < 60:
+                time.sleep(0.2)
+            runner.shutdown()
+
+            outs = runner.out_acc + runner.err_acc
+            found = len(list(itertools.dropwhile(lambda x: 'Randomness Testing Toolkit' not in x, outs))) > 0
+
+            if not found:
+                logger.info("RTT not binary compatible, it seems, idx: %s" % idx)
+                time.sleep(5)
+                rand_sleep()
+            else:
+                logger.info("RTT is binary compatible")
+                return
+
+        except Exception as e:
+            logger.error("Exception in RTT binary compatibility test %s" % e)
+
+    raise ValueError("RTT is not binary compatible with this system")
+
+
 #################
 # MAIN FUNCTION #
 #################
@@ -608,6 +637,9 @@ def main():
         print_error("Configuration file: {}".format(e))
         sys.exit(1)
 
+    # Test if the rtt binary can run on this machine
+    test_rtt_binary_compatibility()
+
     ##########################
     # Connecting to database #
     ##########################
@@ -684,6 +716,8 @@ def main():
     ############################################################
     logger.info("Starting job load loop")
     try:
+        # TODO: test RTT binary compatibility
+
         rand_sleep()
         # Do this until get_job_info uses sys.exit(0) =>
         # => there are no pending jobs
@@ -731,17 +765,13 @@ def main():
             logger.info("Job fetched, ID: %s" % job_info.id)
             fetch_data(job_info.experiment_id, sftp)
             rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host, mysql_port=mysql_params.port)
-            rtt_env = {'LD_LIBRARY_PATH': rtt_utils.extend_lib_path(os.path.dirname(rtt_binary))}
 
-            print_info("Executing job: job_id {}, experiment_id {}"
+            logger.info("Executing job: job_id {}, experiment_id {}"
                        .format(job_info.id, job_info.experiment_id))
-            print_info("CMD: {}".format(rtt_args))
+            logger.info("CMD: {}".format(rtt_args))
 
             time_job_start = time.time()
-            async_runner = rtt_worker.AsyncRunner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary),
-                                                  shell=False, env=rtt_env)
-            async_runner.log_out_after = False
-            async_runner.preexec_setgrp = True
+            async_runner = rtt_worker.get_rtt_runner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary))
 
             logger.info("Starting async command")
             last_heartbeat = 0

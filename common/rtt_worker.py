@@ -332,6 +332,14 @@ class AsyncRunner:
         return self
 
 
+def get_rtt_runner(rtt_args, cwd):
+    rtt_env = {'LD_LIBRARY_PATH': rtt_utils.extend_lib_path(cwd)}
+    async_runner = AsyncRunner(rtt_args, cwd=cwd, shell=False, env=rtt_env)
+    async_runner.log_out_after = False
+    async_runner.preexec_setgrp = True
+    return async_runner
+
+
 class SSHForwarder:
     def __init__(self, ssh_params: rtt_sftp_conn.SSHParams, remote_server: str, remote_port: int, local_port=None):
         self.ssh_params = ssh_params
