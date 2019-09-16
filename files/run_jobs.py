@@ -127,7 +127,8 @@ def get_job_info(connection):
     # Looking for jobs whose files are already present in local cache
     time_exp_cached = -time.time()
     cursor.execute("SELECT experiment_id FROM jobs "
-                   "WHERE status='pending' GROUP BY experiment_id")
+                   "WHERE status='pending' GROUP BY experiment_id "
+                   "ORDER BY experiment_id LIMIT 5000")
     time_exp_cached += time.time()
 
     # This terminates script if there are no pending jobs
@@ -146,17 +147,20 @@ def get_job_info(connection):
             if cursor.rowcount == 0:
                 connection.commit()
                 logger.info("All pending jobs for cached data are gone, retry later, query time: %.2f" % time_exp_cached)
-                sys.exit(0)
+                continue
 
             row = cursor.fetchone()
             job_info = JobInfo(row[0], row[1], row[2])
             cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id))
             connection.commit()
             return job_info
+    rand_sleep()
+
     # If program gets here, no relevant cached files were found
 
     # Looking for experiments that have all their jobs set as pending. This will cause that
     # each experiment is computed by single node, given enough experiments are available
+    logger.debug("Selecting pending experiments...")
     time_exp_pending = -time.time()
     cursor.execute("""SELECT id FROM experiments
                       WHERE status='pending'""")
@@ -169,18 +173,20 @@ def get_job_info(connection):
         if cursor.rowcount == 0:
             connection.commit()
             logger.info("All pending jobs are gone for this experiment, retry later, query time: %.2f" % time_exp_pending)
-            sys.exit(0)
 
-        row = cursor.fetchone()
-        job_info = JobInfo(row[0], row[1], row[2])
-        cursor.execute(sql_upd_experiment_running, (experiment_id, ))
-        cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
-        connection.commit()
-        return job_info
+        else:
+            row = cursor.fetchone()
+            job_info = JobInfo(row[0], row[1], row[2])
+            cursor.execute(sql_upd_experiment_running, (experiment_id, ))
+            cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
+            connection.commit()
+            return job_info
+    rand_sleep()
 
     # If program gets here it means that there are no experiments that haven't been
     # started by other nodes before. So now just pick one job and execute him.
     # No need for check for existence, table is locked and check is at the beginning
+    logger.debug("Selecting pending jobs...")
     cursor.execute("SELECT id, experiment_id, battery "
                    "FROM jobs WHERE status='pending' FOR UPDATE")
     row = cursor.fetchone()
