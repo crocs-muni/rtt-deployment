@@ -75,6 +75,12 @@ def rand_sleep(val=2, diff=0.5):
     time.sleep(val + random.randrange(0, 2*diff) - diff)
 
 
+def randomize_first_n(lst, n=100):
+    pa, pb = lst[:n], lst[n:]
+    random.shuffle(pa)
+    return pa + pb
+
+
 def reset_jobs(connection):
     logger.info("Job reset routine")
     cursor = connection.cursor()
@@ -141,7 +147,10 @@ def get_job_info(connection):
 
     # Looking for experiments whose data are already cached
     # on the node
-    for row in cursor.fetchall():
+    pending_exps = list(cursor.fetchall())
+    pending_exps = randomize_first_n(pending_exps, 500)
+
+    for row in pending_exps:
         experiment_id = row[0]
         cache_data = get_data_path(cache_data_dir, experiment_id)
         if os.path.exists(cache_data):
@@ -168,7 +177,10 @@ def get_job_info(connection):
     time_exp_pending += time.time()
 
     logger.debug("Number of pending experiments: %s" % cursor.rowcount)
-    for row in cursor.fetchall():
+    pending_exps = list(cursor.fetchall())
+    pending_exps = randomize_first_n(pending_exps, 500)
+
+    for row in pending_exps:
         experiment_id = row[0]
         cursor.execute(sql_sel_job, (experiment_id, ))
         if cursor.rowcount == 0:
@@ -759,7 +771,7 @@ def main():
                 rand_sleep()
                 continue
 
-            logger.info("Job fetched, ID: %s" % job_info.id)
+            logger.info("Job fetched, ID: %s, expId: %s" % (job_info.id, job_info.experiment_id))
             fetch_data(job_info.experiment_id, sftp)
             rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host, mysql_port=mysql_params.port)
 
