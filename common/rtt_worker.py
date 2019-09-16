@@ -227,7 +227,7 @@ class AsyncRunner:
             dst_cur[0] += lines[0]
             nlines = len(lines)
             if nlines > 1:
-                process_line(dst_cur[0])
+                process_line(dst_cur[0], is_err)
                 dst_cur[0] = ""
 
             for line in lines[1:-1]:
