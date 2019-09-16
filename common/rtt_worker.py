@@ -158,6 +158,23 @@ class AsyncRunner:
         finally:
             self.was_running = True
 
+    def __del__(self):
+        self.deinit()
+
+    def deinit(self):
+        rtt_utils.try_fnc(lambda: self.feeder.close())
+
+        if not self.proc:
+            return
+
+        if self.using_stdout_cap:
+            rtt_utils.try_fnc(lambda: self.proc.stdout.close())
+
+        if self.using_stderr_cap:
+            rtt_utils.try_fnc(lambda: self.proc.stderr.close())
+
+        rtt_utils.try_fnc(lambda: self.proc.close())
+
     def run_internal(self):
         def preexec_function():
             os.setpgrp()
@@ -287,18 +304,22 @@ class AsyncRunner:
             logger.info("Runner while ended")
             p.wait()
             self.ret_code = p.commands[0].returncode if p.commands[0] else -1
+
             if self.using_stdout_cap:
                 add_output([p.stdout.read(-1, False)], finish=True)
-                p.stdout.close()
+                rtt_utils.try_fnc(lambda: p.stdout.close())
+
             if self.using_stderr_cap:
                 add_output([p.stderr.read(-1, False)], True, finish=True)
-                p.stderr.close()
+                rtt_utils.try_fnc(lambda: p.stderr.close())
+
             self.was_running = True
             self.is_running = False
             self.on_change()
 
             logger.info("Program ended with code: %s" % self.ret_code)
             logger.info("Command: %s" % cmd)
+
             if self.log_out_after:
                 logger.info("Std out: %s" % "\n".join(self.out_acc))
                 logger.info("Error out: %s" % "\n".join(self.err_acc))
@@ -309,6 +330,8 @@ class AsyncRunner:
 
         finally:
             self.was_running = True
+            rtt_utils.try_fnc(lambda: self.feeder.close())
+
             if self.on_finished:
                 self.on_finished(self)
 
@@ -327,6 +350,7 @@ class AsyncRunner:
         while self.is_running:
             time.sleep(0.1)
         logger.info("Program terminated")
+        self.deinit()
 
     def start(self):
         install_sarge_filter()
