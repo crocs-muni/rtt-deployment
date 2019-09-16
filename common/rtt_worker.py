@@ -214,7 +214,7 @@ class AsyncRunner:
             if self.on_output:
                 self.on_output(self, line, is_err)
 
-        def add_output(buffers, is_err=False):
+        def add_output(buffers, is_err=False, finish=False):
             buffers = [x.decode("utf8") for x in buffers]
             lines = [""]
 
@@ -234,6 +234,8 @@ class AsyncRunner:
                 process_line(line, is_err)
 
             dst_cur[0] = lines[-1] or ""
+            if finish and lines[-1]:
+                process_line(lines[-1], is_err)
 
         try:
             while len(p.commands) == 0:
@@ -280,10 +282,10 @@ class AsyncRunner:
             p.wait()
             self.ret_code = p.commands[0].returncode if p.commands[0] else -1
             if self.using_stdout_cap:
-                add_output([p.stdout.read(-1, False)])
+                add_output([p.stdout.read(-1, False)], finish=True)
                 p.stdout.close()
             if self.using_stderr_cap:
-                add_output([p.stderr.read(-1, False)], True)
+                add_output([p.stderr.read(-1, False)], True, finish=True)
                 p.stderr.close()
             self.was_running = True
             self.is_running = False
