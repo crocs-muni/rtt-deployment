@@ -129,7 +129,7 @@ def get_job_info(connection):
     try:
         reset_jobs(connection)
     except Exception as e:
-        logger.error("Job reset exception: %s" % e)
+        logger.error("Job reset exception: %s" % (e,))
         rand_sleep()
 
     # Looking for jobs whose files are already present in local cache
@@ -272,7 +272,7 @@ def refresh_backend_record(connection, backend_data: BackendData):
         return backend_data
 
     except Exception as e:
-        logger.error("Exception in worker rec refresh: %s" % e)
+        logger.error("Exception in worker rec refresh: %s" % (e,))
         rand_sleep()
 
 
@@ -392,7 +392,7 @@ def purge_unfinished_job(connection, job_id):
         logger.info("Purge committed")
 
     except Exception as e:
-        logger.error("Exception in purge_unfinished_job: %s" % e, e)
+        logger.error("Exception in purge_unfinished_job: %s" % (e,), e)
         rand_sleep()
 
 
@@ -413,7 +413,7 @@ def try_finalize_experiments(connection):
                 cursor.execute(sql_upd_experiment_finished, (eid,))
 
     except Exception as e:
-        logger.error("Exception in finalizing experiments: %s" % e, e)
+        logger.error("Exception in finalizing experiments: %s" % (e,), e)
         rand_sleep()
 
 
@@ -424,7 +424,7 @@ def try_upd_job_finished(cursor, job_info):
             cursor.execute(sql_upd_job_finished, (job_info.id,))
             return
         except Exception as e:
-            logger.error("Exception in try_upd_job_finished: %s" % e, e)
+            logger.error("Exception in try_upd_job_finished: %s" % (e,), e)
             rand_sleep()
     raise ValueError("Could not finish try_upd_job_finished")
 
@@ -436,7 +436,7 @@ def try_upd_experiment_finished(cursor, job_info):
             cursor.execute(sql_upd_experiment_finished, (job_info.experiment_id,))
             return
         except Exception as e:
-            logger.error("Exception in try_upd_experiment_finished: %s" % e, e)
+            logger.error("Exception in try_upd_experiment_finished: %s" % (e,), e)
             rand_sleep()
     raise ValueError("Could not finish try_upd_experiment_finished")
 
@@ -449,7 +449,7 @@ def try_make_finalized(cursor, job_info, db):
             try_upd_experiment_finished(cursor, job_info)
             send_email_to_author(job_info.experiment_id, db)
         except Exception as e:
-            logger.error("Exception in try_make_finalized: %s" % e, e)
+            logger.error("Exception in try_make_finalized: %s" % (e,), e)
             rand_sleep()
 
 
@@ -551,7 +551,7 @@ def test_rtt_binary_compatibility():
                 return
 
         except Exception as e:
-            logger.error("Exception in RTT binary compatibility test %s" % e)
+            logger.error("Exception in RTT binary compatibility test %s" % (e,))
 
     raise ValueError("RTT is not binary compatible with this system")
 

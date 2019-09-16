@@ -68,7 +68,7 @@ class SargeLogFilter(logging.Filter):
             return 1
 
         except Exception as e:
-            logger.error("Exception in log filtering: %s" % e)
+            logger.error("Exception in log filtering: %s" % (e,))
 
         return 1
 
@@ -148,7 +148,7 @@ class AsyncRunner:
             self.run_internal()
         except Exception as e:
             self.is_running = False
-            logger.error("Unexpected exception in runner: %s" % e)
+            logger.error("Unexpected exception in runner: %s" % (e,))
         finally:
             self.was_running = True
 
@@ -299,7 +299,7 @@ class AsyncRunner:
 
         except Exception as e:
             self.is_running = False
-            logger.error("Exception in async runner: %s" % e)
+            logger.error("Exception in async runner: %s" % (e,))
 
         finally:
             self.was_running = True
@@ -597,7 +597,7 @@ class SSHForwarderLinux(SSHForwarder):
                 time.sleep(2)
 
             except Exception as e:
-                logger.error("Exception when terminating running ssh %s" % e)
+                logger.error("Exception when terminating running ssh %s" % (e,))
 
         logger.info("SSH runner shutdown")
         self.runner.shutdown()

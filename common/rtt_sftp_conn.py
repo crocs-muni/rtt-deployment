@@ -247,5 +247,5 @@ def create_sftp_storage_conn_params(params: SSHParams):
         sftp.get_channel().settimeout(60)
         return sftp
     except Exception as e:
-        logger.error("Sftp connection: %s" % e)
+        logger.error("Sftp connection: %s" % (e,))
         raise

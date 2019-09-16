@@ -182,7 +182,7 @@ class FileLockLogFilter(logging.Filter):
             return 1
 
         except Exception as e:
-            logger.error("Exception in log filtering: %s" % e)
+            logger.error("Exception in log filtering: %s" % (e,))
 
         return 1
 
