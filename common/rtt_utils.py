@@ -7,6 +7,7 @@ from filelock import Timeout, FileLock
 
 logger = logging.getLogger(__name__)
 EXPIRE_SECONDS_DEFAULT = 60 * 60 * 24
+FILELOCK_FILTER_INSTALLED = False
 
 
 def try_remove(path):
@@ -14,6 +15,13 @@ def try_remove(path):
         return
     try:
         os.unlink(path)
+    except:
+        pass
+
+
+def try_fnc(fnc):
+    try:
+        fnc()
     except:
         pass
 
@@ -188,9 +196,14 @@ class FileLockLogFilter(logging.Filter):
 
 
 def install_filelock_filter():
+    global FILELOCK_FILTER_INSTALLED
+    if FILELOCK_FILTER_INSTALLED:
+        return
+
     for handler in logging.getLogger().handlers:
         handler.addFilter(FileLockLogFilter("hnd"))
     logging.getLogger().addFilter(FileLockLogFilter("root"))
+    FILELOCK_FILTER_INSTALLED = True
 
 
 def extend_lib_path(path):

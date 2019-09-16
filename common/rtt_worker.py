@@ -22,6 +22,7 @@ from . import rtt_sftp_conn
 from . import rtt_utils
 
 logger = logging.getLogger(__name__)
+SARGE_FILTER_INSTALLED = False
 RTT_BATTERIES = {
     'Dieharder': 'dieharder',
     'NIST Statistical Testing Suite': 'nist_sts',
@@ -78,9 +79,14 @@ def install_sarge_filter():
     Installs Sarge log filter to avoid long 1char debug dumps
     :return:
     """
+    global SARGE_FILTER_INSTALLED
+    if SARGE_FILTER_INSTALLED:
+        return
+
     for handler in logging.getLogger().handlers:
         handler.addFilter(SargeLogFilter("hnd"))
     logging.getLogger().addFilter(SargeLogFilter("root"))
+    SARGE_FILTER_INSTALLED = True
 
 
 def sarge_sigint(proc, sig=signal.SIGTERM):
