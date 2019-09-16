@@ -783,7 +783,8 @@ def main():
             async_runner = rtt_worker.get_rtt_runner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary))
 
             logger.info("Starting async command")
-            last_heartbeat = 0
+            last_heartbeat = time_job_start - 5
+            test_failed = False
             async_runner.start()
             logger.info("Async command started")
 
@@ -794,11 +795,17 @@ def main():
 
                     job_heartbeat(db, job_info)
                     last_heartbeat = time.time()
+
+                if time.time() - time_job_start > max_sec_per_test:
+                    logger.error("Current test takes too long, either reconfigure the param or fix the test. Terminating...")
+                    test_failed = True
+                    async_runner.shutdown()
+
                 time.sleep(1)
 
             logger.info("Async command finished")
-            if async_runner.ret_code != 0:
-                logger.error("RTT return code is not zero: %s" % async_runner.ret_code)
+            if async_runner.ret_code != 0 or test_failed:
+                logger.error("RTT return code is not zero: %s (or timed out)" % async_runner.ret_code)
                 db.commit()
                 continue
 
