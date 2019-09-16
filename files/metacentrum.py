@@ -54,7 +54,7 @@ class JobGenerator:
         files = []
         batch_id = int(time.time())
         for idx in range(self.args.num):
-            workid_base = 'worker-%s-%04d' % (batch_id, idx)
+            workid_base = 'rttw-%s-%04d' % (batch_id, idx)
             worker_id = hashlib.md5(workid_base.encode()).hexdigest()
             worker_name = 'meta:%s:%04d:%s' % (batch_id, idx, worker_id[:8])
             worker_file_base = '%s-%s' % (workid_base, worker_id[:8])
@@ -71,7 +71,7 @@ class JobGenerator:
             if '{{{' in job_data:
                 raise ValueError('Missed placeholder')
 
-            job_file = os.path.join(self.args.job_dir, 'job-%s.sh' % worker_file_base)
+            job_file = os.path.join(self.args.job_dir, '%s.sh' % worker_file_base)
             with open(os.open(job_file, os.O_CREAT | os.O_WRONLY, 0o700), 'w') as fh:
                 fh.write(job_data)
 
