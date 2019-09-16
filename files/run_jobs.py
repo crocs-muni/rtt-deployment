@@ -76,6 +76,7 @@ def rand_sleep(val=2, diff=0.5):
 
 
 def reset_jobs(connection):
+    logger.info("Job reset routine")
     cursor = connection.cursor()
     sql_select_reset_job = \
         """
@@ -146,7 +147,6 @@ def get_job_info(connection):
         if os.path.exists(cache_data):
             cursor.execute(sql_sel_job, (experiment_id, ))
             if cursor.rowcount == 0:
-                connection.commit()
                 logger.info("All pending jobs for cached data are gone, retry later, query time: %.2f" % time_exp_cached)
                 continue
 
@@ -167,21 +167,20 @@ def get_job_info(connection):
                       WHERE status='pending'""")
     time_exp_pending += time.time()
 
-    if cursor.rowcount != 0:
-        row = cursor.fetchone()
+    logger.debug("Number of pending experiments: %s" % cursor.rowcount)
+    for row in cursor.fetchall():
         experiment_id = row[0]
         cursor.execute(sql_sel_job, (experiment_id, ))
         if cursor.rowcount == 0:
-            connection.commit()
-            logger.info("All pending jobs are gone for this experiment, retry later, query time: %.2f" % time_exp_pending)
+            logger.info("All pending jobs are gone for this experiment %s, retry later, query time: %.2f" % (experiment_id, time_exp_pending))
+            continue
 
-        else:
-            row = cursor.fetchone()
-            job_info = JobInfo(row[0], row[1], row[2])
-            cursor.execute(sql_upd_experiment_running, (experiment_id, ))
-            cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
-            connection.commit()
-            return job_info
+        row = cursor.fetchone()
+        job_info = JobInfo(row[0], row[1], row[2])
+        cursor.execute(sql_upd_experiment_running, (experiment_id, ))
+        cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
+        connection.commit()
+        return job_info
     rand_sleep()
 
     # If program gets here it means that there are no experiments that haven't been
