@@ -745,7 +745,10 @@ def main():
             if args.run_time:
                 time_running = time.time() - time_start
                 time_left = args.run_time - time_running
-                if time_left < max_sec_per_test:
+
+                # Correct job termination only if allocated time is at least 1.5x longest job
+                # otherwise we just stop too early so let them run...
+                if args.run_time > 1.5 * max_sec_per_test and time_left < max_sec_per_test:
                     logger.info("Time running: %.2f remaining: %.2f, terminating" % (time_running, time_left))
                     raise SystemExit()
 
