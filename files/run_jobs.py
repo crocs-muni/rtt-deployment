@@ -716,8 +716,6 @@ def main():
     ############################################################
     logger.info("Starting job load loop")
     try:
-        # TODO: test RTT binary compatibility
-
         rand_sleep()
         # Do this until get_job_info uses sys.exit(0) =>
         # => there are no pending jobs
