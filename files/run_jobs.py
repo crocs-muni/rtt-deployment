@@ -132,11 +132,14 @@ def get_job_info(connection):
     sql_sel_job = \
         """SELECT id, experiment_id, battery
            FROM jobs
-           WHERE status='pending' AND experiment_id=%s FOR UPDATE"""
+           WHERE status='pending' AND experiment_id=%s 
+           ORDER BY RAND() LIMIT 1 
+           FOR UPDATE"""
     sql_sel_job_id = \
         """SELECT id, experiment_id, battery
            FROM jobs
-           WHERE status='pending' AND id=%s FOR UPDATE"""
+           WHERE status='pending' AND id=%s 
+           FOR UPDATE"""
 
     # Reset unfinished jobs, only by long-term workers to avoid locking on cleanup actions
     if backend_data.type_longterm:
@@ -166,6 +169,7 @@ def get_job_info(connection):
         experiment_id = row[0]
         cache_data = get_data_path(cache_data_dir, experiment_id)
         if os.path.exists(cache_data):
+            logger.debug("Trying to acquire random job with exp_id=%s" % (experiment_id, ))
             cursor.execute(sql_sel_job, (experiment_id, ))
             if cursor.rowcount == 0:
                 logger.info("All pending jobs for cached data are gone, retry later, query time: %.2f" % time_exp_cached)
@@ -192,6 +196,7 @@ def get_job_info(connection):
     pending_exps = randomize_first_n(list(cursor.fetchall()), 500)
     for row in pending_exps:
         experiment_id = row[0]
+        logger.debug("Trying to acquire random job with exp_id=%s" % (experiment_id,))
         cursor.execute(sql_sel_job, (experiment_id, ))
         if cursor.rowcount == 0:
             logger.info("All pending jobs are gone for this experiment %s, retry later, query time: %.2f" % (experiment_id, time_exp_pending))
@@ -216,6 +221,7 @@ def get_job_info(connection):
     logger.debug("Number of pending jobs: %s" % cursor.rowcount)
     pending_jobs = randomize_first_n(list(cursor.fetchall()), 500)
     for row in pending_jobs:
+        logger.debug("Trying to acquire job with id=%s" % (row[0],))
         cursor.execute(sql_sel_job_id, (row[0],))
         if cursor.rowcount == 0:
             continue
