@@ -806,7 +806,7 @@ def main():
             except SystemExit as e:
                 logger.debug("No jobs to process")
                 if args.run_time and args.all_time:
-                    rand_sleep()
+                    rand_sleep(30, 5)
                     continue
 
                 else:
