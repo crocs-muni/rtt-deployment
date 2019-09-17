@@ -86,28 +86,36 @@ def reset_jobs(connection):
     cursor = connection.cursor()
     sql_select_reset_job = \
         """
-        SELECT id FROM jobs
+        SELECT id, battery, experiment_id FROM jobs
         WHERE status='running' 
           AND run_started > DATE_SUB(NOW(), INTERVAL 3 DAY)
-          AND run_heartbeat < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+          AND run_heartbeat < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
           AND retries < 10
+          FOR UPDATE
         """
 
-    cursor.execute(sql_select_reset_job)
-    if cursor.rowcount == 0:
-        return
+    try:
+        cursor.execute(sql_select_reset_job)
+        if cursor.rowcount == 0:
+            return
 
-    logger.info("Going to reset %s jobs" % cursor.rowcount)
-    for row in cursor.fetchall():
-        jid = row[0]
-        purge_unfinished_job(connection, jid)
+        logger.info("Going to reset %s jobs" % cursor.rowcount)
+        for row in list(cursor.fetchall()):
+            jid = row[0]
+            purge_unfinished_job(cursor, jid, eid=row[2], battery=row[1])
 
-        logger.info("Base job reset %s" % jid)
-        cursor2 = connection.cursor()
-        cursor2.execute("UPDATE jobs set status='pending', retries=retries+1 WHERE id=%s", (jid,))
+            logger.info("Base job reset %s" % jid)
+            cursor.execute("UPDATE jobs set status='pending', retries=retries+1 WHERE id=%s AND status='running'", (jid,))
 
-    connection.commit()
-    logger.info("Jobs cleaned")
+        logger.info("Jobs cleaned")
+
+    except Exception as e:
+        logger.error("Exception in job cleaning: %s" % (e,))
+        raise
+
+    finally:
+        connection.commit()
+        logger.info("Jobs clean finished")
 
 
 def get_job_info(connection):
@@ -125,12 +133,13 @@ def get_job_info(connection):
            FROM jobs
            WHERE status='pending' AND experiment_id=%s FOR UPDATE"""
 
-    # Reset unfinished jobs
-    try:
-        reset_jobs(connection)
-    except Exception as e:
-        logger.error("Job reset exception: %s" % (e,))
-        rand_sleep()
+    # Reset unfinished jobs, only by long-term workers to avoid locking on cleanup actions
+    if backend_data.type_longterm:
+        try:
+            reset_jobs(connection)
+        except Exception as e:
+            logger.error("Job reset exception: %s" % (e,))
+            rand_sleep()
 
     # Looking for jobs whose files are already present in local cache
     time_exp_cached = -time.time()
@@ -362,19 +371,10 @@ def try_clean_logs(log_dir):
         rand_sleep()
 
 
-def purge_unfinished_job(connection, job_id):
-    sql_sel = "SELECT id, battery, experiment_id FROM jobs WHERE id=%s"
+def purge_unfinished_job(cursor, job_id, eid, battery):
     try:
-        cursor = connection.cursor()
-        cursor.execute(sql_sel, (job_id,))
-        if cursor.rowcount == 0:
-            return
-
-        row = cursor.fetchone()
-        eid = row[2]
-        logger.info("Purging job ID: %s, experiment ID: %s" % (job_id, eid))
-
-        exp_batt = rtt_worker.job_battery_to_experiment(row[1])
+        logger.info("Purging job ID: %s, experiment ID: %s, battery: %s" % (job_id, eid, battery))
+        exp_batt = rtt_worker.job_battery_to_experiment(battery)
         cursor.execute("SELECT id FROM batteries WHERE experiment_id=%s AND name=%s", (eid, exp_batt))
 
         if cursor.rowcount == 0:
@@ -382,14 +382,11 @@ def purge_unfinished_job(connection, job_id):
             return
 
         logger.info("Going to purge %s batteries" % cursor.rowcount)
-        for row in cursor.fetchall():
+        for row in list(cursor.fetchall()):
             bid = row[0]
             logger.info("Purging battery results with ID: %s, name: %s" % (bid, exp_batt))
 
-            cursor2 = connection.cursor()
-            cursor2.execute("DELETE FROM batteries WHERE id=%s", (bid,))
-        connection.commit()
-        logger.info("Purge committed")
+            cursor.execute("DELETE FROM batteries WHERE id=%s", (bid,))
 
     except Exception as e:
         logger.error("Exception in purge_unfinished_job: %s" % (e,), e)
