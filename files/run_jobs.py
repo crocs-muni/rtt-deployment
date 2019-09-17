@@ -72,7 +72,7 @@ worker_pid = os.getpid()
 # Function declaration #
 ########################
 def rand_sleep(val=2.0, diff=0.5):
-    time.sleep(max(0.0001, val + random.randrange(0, 2*diff) - diff))
+    time.sleep(max(0.0001, val + random.uniform(0, 2*diff) - diff))
 
 
 def randomize_first_n(lst, n=100):
@@ -684,7 +684,7 @@ def main():
             if mysql_forwarder:
                 mysql_forwarder.shutdown()
 
-            time.sleep(2 + conn_retry * 0.2 + random.randrange(0, 2000) / 1000.0)
+            time.sleep(2 + conn_retry * 0.2 + random.uniform(0, 2000) / 1000.0)
 
     if not db:
         raise ValueError("Could not connect to the MySQL")
@@ -705,7 +705,7 @@ def main():
         except Exception as e:
             sftp = None
             logger.error("Error in starting sftp connection, iter: %s, err: %s" % (conn_retry, e))
-            time.sleep(2 + conn_retry * 0.2 + random.randrange(0, 2000) / 1000.0)
+            time.sleep(2 + conn_retry * 0.2 + random.uniform(0, 2000) / 1000.0)
 
     if not sftp:
         raise ValueError("Could not create SFTP connection")
