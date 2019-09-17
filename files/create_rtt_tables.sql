@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS experiments (
     id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
     name                VARCHAR(255) NOT NULL,
     author_email        VARCHAR(255),
-    status              ENUM('pending','running','finished') NOT NULL DEFAULT 'pending',
+    status              ENUM('pending','running','finished','error') NOT NULL DEFAULT 'pending',
     created             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     run_started         DATETIME DEFAULT NULL,
     run_finished        DATETIME DEFAULT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS experiments (
 CREATE TABLE IF NOT EXISTS jobs (
     id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
     battery             VARCHAR(100) NOT NULL,
-    status              ENUM('pending','running','finished') NOT NULL DEFAULT 'pending',
+    status              ENUM('pending','running','finished','error') NOT NULL DEFAULT 'pending',
     run_started         DATETIME DEFAULT NULL,
     run_finished        DATETIME DEFAULT NULL,
     experiment_id       BIGINT UNSIGNED NOT NULL,
