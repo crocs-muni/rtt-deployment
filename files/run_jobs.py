@@ -71,8 +71,8 @@ worker_pid = os.getpid()
 ########################
 # Function declaration #
 ########################
-def rand_sleep(val=2, diff=0.5):
-    time.sleep(val + random.randrange(0, 2*diff) - diff)
+def rand_sleep(val=2.0, diff=0.5):
+    time.sleep(max(0.0001, val + random.randrange(0, 2*diff) - diff))
 
 
 def randomize_first_n(lst, n=100):
@@ -742,6 +742,7 @@ def main():
         # Otherwise loop is without break, so code will always
         # jump into SystemExit catch
         while True:
+            rand_sleep(0.1, 0.05)
             if killer.is_killed():
                 logger.info("Terminating due to kill")
                 raise SystemExit()

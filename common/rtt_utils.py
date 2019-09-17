@@ -141,6 +141,7 @@ class FileLocker(object):
 
             time_now = time.time()
             if timeout is not None and timeout < 0:
+                time.sleep(0.01)
                 continue
             if timeout is not None and timeout == 0:
                 logger.info("Timeout, immediate")
