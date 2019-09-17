@@ -642,3 +642,21 @@ class SSHForwarderLinux(SSHForwarder):
         self.ask_pass_path = None
         logger.info("SSH Shutdown finished")
 
+
+def create_experiments_dir(basedir):
+    os.makedirs(basedir, 0o771, True)
+    d1 = ["AlgorithmTesting", "BBS", "CCG", "G-SHA1", "LCG", "MODEXP", "MS", "QCG1", "QCG2", "XOR"]
+    d2 = ["Frequency", "BlockFrequency", "Runs", "LongestRun",
+          "Rank", "FFT", "NonOverlappingTemplate",
+          "OverlappingTemplate", "Universal", "LinearComplexity"
+          "Serial", "ApproximateEntropy", "CumulativeSums"
+          "RandomExcursions", "RandomExcursionsVariant"]
+
+    for cd in d1:
+        cdfull = os.path.join(basedir, "experiments", cd)
+        os.makedirs(cdfull, 0o771, True)
+
+        for cd2 in d2:
+            cd2full = os.path.join(cdfull, cd2)
+            os.makedirs(cd2full, 0o771, True)
+

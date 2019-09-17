@@ -2,6 +2,7 @@ import os
 import time
 import logging
 import signal
+import shutil
 from filelock import Timeout, FileLock
 
 
@@ -24,6 +25,10 @@ def try_fnc(fnc):
         fnc()
     except:
         pass
+
+
+def try_remove_rf(start):
+    return try_remove(lambda: shutil.rmtree(start, True))
 
 
 def clean_log_files(log_root_dir, expire_seconds=EXPIRE_SECONDS_DEFAULT):

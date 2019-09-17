@@ -16,6 +16,7 @@ import subprocess
 import shlex
 import time
 import sys
+import re
 import collections
 import smtplib
 import argparse
@@ -318,13 +319,14 @@ def get_config_path(config_dir, experiment_id):
     return os.path.join(config_dir, "{}.json".format(experiment_id))
 
 
-def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=None):
-    args = "{} -b {} -c {} -f {} -r db_mysql --eid {}" \
+def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=None, exp_dir=None):
+    args = "{} -b {} -c {} -f {} -r db_mysql --eid {} --jid {}" \
         .format(rtt_binary,
                 job_info.battery,
                 get_config_path(cache_config_dir, job_info.experiment_id),
                 get_data_path(cache_data_dir, job_info.experiment_id),
-                job_info.experiment_id)
+                job_info.experiment_id,
+                job_info.id)
 
     if rtt_config:
         args += ' -s %s' % rtt_config
@@ -332,6 +334,8 @@ def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=Non
         args += ' --db-host %s' % mysql_host
     if mysql_port:
         args += ' --db-port %s' % mysql_port
+    if exp_dir:
+        args += ' --rpath "%s"' % exp_dir
     return args
 
 
@@ -460,6 +464,19 @@ def try_make_finalized(cursor, job_info, db):
         except Exception as e:
             logger.error("Exception in try_make_finalized: %s" % (e,), e)
             rand_sleep()
+
+
+def check_experiment_results(connection, from_id=None):
+    pass
+
+
+def create_worker_exp_dir(worker_base_dir, backend_data: BackendData):
+    wname = re.sub(r'[^a-zA-Z0-9._-]', '', backend_data.name or "")
+    waddr = re.sub(r'[^a-zA-Z0-9._-]', '', backend_data.address or "")
+    wid = re.sub(r'[^a-zA-Z0-9._-]', '', backend_data.id[:8] or "")
+    exp_dir = os.path.join(worker_base_dir, 'workers', '%s-%s-%s' % (waddr, wname, wid))
+    rtt_worker.create_experiments_dir(exp_dir)
+    return exp_dir
 
 
 def send_email_to_author(exp_id, connection):
@@ -712,7 +729,8 @@ def main():
 
     # Changing working directory so RTT will find files it needs
     # to run
-    os.chdir(os.path.dirname(rtt_binary))
+    worker_base_dir = os.path.dirname(rtt_binary)
+    os.chdir(worker_base_dir)
 
     # Get public IP address
     try:
@@ -735,8 +753,16 @@ def main():
     # in the future (???)                                      #
     ############################################################
     logger.info("Starting job load loop")
+    worker_exp_dir = None
+
     try:
         rand_sleep()
+
+        logger.info("Creating worker scratch dir")
+        worker_exp_dir = create_worker_exp_dir(worker_base_dir, backend_data)
+        worker_exp_dir = os.path.abspath(worker_exp_dir)
+        logger.info("Worker scratch dir: %s" % worker_exp_dir)
+
         # Do this until get_job_info uses sys.exit(0) =>
         # => there are no pending jobs
         # Otherwise loop is without break, so code will always
@@ -786,7 +812,8 @@ def main():
 
             logger.info("Job fetched, ID: %s, expId: %s" % (job_info.id, job_info.experiment_id))
             fetch_data(job_info.experiment_id, sftp)
-            rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host, mysql_port=mysql_params.port)
+            rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host, mysql_port=mysql_params.port,
+                                         exp_dir=worker_exp_dir)
 
             logger.info("Executing job: job_id {}, experiment_id {}"
                        .format(job_info.id, job_info.experiment_id))
@@ -843,6 +870,7 @@ def main():
             try_clean_logs(rtt_log_dir)
         if mysql_forwarder:
             mysql_forwarder.shutdown()
+        rtt_utils.try_remove_rf(worker_exp_dir)
 
         logger.info("System exit, terminating")
         print_info("Terminating.")
@@ -856,6 +884,7 @@ def main():
         cursor.close()
         db.close()
         os.umask(old_mask)
+        rtt_utils.try_remove_rf(worker_exp_dir)
 
         if mysql_forwarder:
             mysql_forwarder.shutdown()
