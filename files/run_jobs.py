@@ -132,6 +132,10 @@ def get_job_info(connection):
         """SELECT id, experiment_id, battery
            FROM jobs
            WHERE status='pending' AND experiment_id=%s FOR UPDATE"""
+    sql_sel_job_id = \
+        """SELECT id, experiment_id, battery
+           FROM jobs
+           WHERE status='pending' AND id=%s FOR UPDATE"""
 
     # Reset unfinished jobs, only by long-term workers to avoid locking on cleanup actions
     if backend_data.type_longterm:
@@ -156,9 +160,7 @@ def get_job_info(connection):
 
     # Looking for experiments whose data are already cached
     # on the node
-    pending_exps = list(cursor.fetchall())
-    pending_exps = randomize_first_n(pending_exps, 500)
-
+    pending_exps = randomize_first_n(list(cursor.fetchall()), 500)
     for row in pending_exps:
         experiment_id = row[0]
         cache_data = get_data_path(cache_data_dir, experiment_id)
@@ -186,9 +188,7 @@ def get_job_info(connection):
     time_exp_pending += time.time()
 
     logger.debug("Number of pending experiments: %s" % cursor.rowcount)
-    pending_exps = list(cursor.fetchall())
-    pending_exps = randomize_first_n(pending_exps, 500)
-
+    pending_exps = randomize_first_n(list(cursor.fetchall()), 500)
     for row in pending_exps:
         experiment_id = row[0]
         cursor.execute(sql_sel_job, (experiment_id, ))
@@ -208,13 +208,25 @@ def get_job_info(connection):
     # started by other nodes before. So now just pick one job and execute him.
     # No need for check for existence, table is locked and check is at the beginning
     logger.debug("Selecting pending jobs...")
-    cursor.execute("SELECT id, experiment_id, battery "
-                   "FROM jobs WHERE status='pending' FOR UPDATE")
-    row = cursor.fetchone()
-    job_info = JobInfo(row[0], row[1], row[2])
-    cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
-    connection.commit()
-    return job_info
+    cursor.execute("SELECT id "
+                   "FROM jobs WHERE status='pending' "
+                   "ORDER BY id LIMIT 5000 ")
+
+    logger.debug("Number of pending jobs: %s" % cursor.rowcount)
+    pending_jobs = randomize_first_n(list(cursor.fetchall()), 500)
+    for row in pending_jobs:
+        cursor.execute(sql_sel_job_id, (row[0],))
+        if cursor.rowcount == 0:
+            continue
+
+        row = cursor.fetchone()
+        job_info = JobInfo(row[0], row[1], row[2])
+        cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
+        connection.commit()
+        return job_info
+
+    connection.rollback()
+    raise SystemExit("No jobs")
 
 
 def job_heartbeat(connection, job_info):
