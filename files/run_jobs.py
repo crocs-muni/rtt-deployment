@@ -814,7 +814,7 @@ def main():
 
             except Exception as e:
                 logger.info("Exception in job fetch: %s" % e)
-                rand_sleep()
+                rand_sleep(10, 3)
                 continue
 
             logger.info("Job fetched, ID: %s, expId: %s" % (job_info.id, job_info.experiment_id))
