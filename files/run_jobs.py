@@ -822,7 +822,7 @@ def main():
             if not backend_data.type_longterm and 'shortterm-disable' in csettings:
                 should_disable = int(csettings['shortterm-disable'])
                 if should_disable and should_disable >= time.time():
-                    logger.info("Shorrterm disabled until %s" % should_disable)
+                    logger.info("Shorrterm disabled until %s, remaining: %.2f" % (should_disable, time.time() - should_disable))
                     rand_sleep(30, 5)
                     continue
 
