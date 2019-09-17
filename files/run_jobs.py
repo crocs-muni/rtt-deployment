@@ -601,8 +601,8 @@ def main():
                         help='Worker ID to use')
     parser.add_argument('--name', dest='name', default=None,
                         help='Worker name to use, e.g., random 32B')
-    parser.add_argument('--name-randomize', dest='name_rand', default=None, type=int,
-                        help='Creates name by hashing the ID')
+    parser.add_argument('--id-randomize', dest='id_rand', default=None, type=int,
+                        help='Creates ID by hashing the name')
     parser.add_argument('--longterm', dest='longterm', default=None, type=int,
                         help='Worker longterm type')
     parser.add_argument('--deactivate', dest='deactivate', default=None, type=int,
@@ -667,9 +667,9 @@ def main():
         backend_data.type_longterm = args.longterm if args.longterm is not None else main_cfg.getint('Backend', 'backend-longterm', fallback=False)
         backend_data.aux = args.aux if args.aux else main_cfg.get('Backend', 'backend-aux', fallback=None)
         max_sec_per_test = args.job_time if args.job_time else main_cfg.getint('Backend', 'Maximum-seconds-per-test', fallback=3800)
-        if args.name_rand:
-            backend_data.name = hashlib.md5(backend_data.id.encode('utf8')).hexdigest()
-            logger.info("Generated worker name: %s" % backend_data.name)
+        if args.id_rand:
+            backend_data.id = hashlib.md5(backend_data.name.encode('utf8')).hexdigest()
+            logger.info("Generated worker ID: %s" % backend_data.id)
 
     except BaseException as e:
         print_error("Configuration file: {}".format(e))
