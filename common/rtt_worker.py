@@ -294,12 +294,11 @@ class AsyncRunner:
                     sarge_sigint(p.commands[0], signal.SIGTERM)
                     sarge_sigint(p.commands[0], signal.SIGINT)
                     logger.info("Sigint sent")
-                    p.close()
                     logger.info("Process closed")
 
                 if (self.using_stdout_cap and not out) or (self.using_stderr_cap and err):
                     continue
-                time.sleep(0.05)
+                time.sleep(0.1)
 
             logger.info("Runner while ended")
             p.wait()
@@ -331,6 +330,7 @@ class AsyncRunner:
         finally:
             self.was_running = True
             rtt_utils.try_fnc(lambda: self.feeder.close())
+            rtt_utils.try_fnc(lambda: self.proc.close())
 
             if self.on_finished:
                 self.on_finished(self)
@@ -462,6 +462,7 @@ def try_to_connect(host, port, timeout=15):
             s.connect((host, port))
             return s
         except socket.error as exc:
+            time.sleep(0.1)
             continue
 
 
