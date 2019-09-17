@@ -476,6 +476,7 @@ def create_worker_exp_dir(worker_base_dir, backend_data: BackendData):
     wid = re.sub(r'[^a-zA-Z0-9._-]', '', backend_data.id[:8] or "")
     exp_dir = os.path.join(worker_base_dir, 'workers', '%s-%s-%s' % (waddr, wname, wid))
     rtt_worker.create_experiments_dir(exp_dir)
+    rtt_worker.copy_templates_dir(worker_base_dir, exp_dir)
     return exp_dir
 
 

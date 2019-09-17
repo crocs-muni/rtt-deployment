@@ -12,6 +12,7 @@ import os
 import random
 import socket
 import typing
+import shutil
 import tempfile
 import paramiko
 import sshtunnel
@@ -645,12 +646,34 @@ class SSHForwarderLinux(SSHForwarder):
 
 def create_experiments_dir(basedir):
     os.makedirs(basedir, 0o771, True)
-    d1 = ["AlgorithmTesting", "BBS", "CCG", "G-SHA1", "LCG", "MODEXP", "MS", "QCG1", "QCG2", "XOR"]
-    d2 = ["Frequency", "BlockFrequency", "Runs", "LongestRun",
-          "Rank", "FFT", "NonOverlappingTemplate",
-          "OverlappingTemplate", "Universal", "LinearComplexity"
-          "Serial", "ApproximateEntropy", "CumulativeSums"
-          "RandomExcursions", "RandomExcursionsVariant"]
+    d1 = ["AlgorithmTesting",
+          "BBS",
+          "CCG",
+          "G-SHA1",
+          "LCG",
+          "MODEXP",
+          "MS",
+          "QCG1",
+          "QCG2",
+          "XOR",
+          ]
+
+    d2 = ["Frequency",
+          "BlockFrequency",
+          "Runs",
+          "LongestRun",
+          "Rank",
+          "FFT",
+          "NonOverlappingTemplate",
+          "OverlappingTemplate",
+          "Universal",
+          "LinearComplexity",
+          "Serial",
+          "ApproximateEntropy",
+          "CumulativeSums",
+          "RandomExcursions",
+          "RandomExcursionsVariant",
+          ]
 
     for cd in d1:
         cdfull = os.path.join(basedir, "experiments", cd)
@@ -660,3 +683,14 @@ def create_experiments_dir(basedir):
             cd2full = os.path.join(cdfull, cd2)
             os.makedirs(cd2full, 0o771, True)
 
+
+def copy_templates_dir(basedir, target):
+    src = os.path.join(basedir, "templates")
+    dst = os.path.join(target, "templates")
+    try:
+        shutil.rmtree(dst, True)
+        return shutil.copytree(src, dst)
+
+    except Exception as e:
+        logger.error("Exception in copying template dir: %s" % (e,))
+        raise
