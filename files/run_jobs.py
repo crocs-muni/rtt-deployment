@@ -470,10 +470,16 @@ def check_experiment_results(connection, from_id=None):
     pass
 
 
+def pathfix(inp):
+    inp = re.sub(r'[^a-zA-Z0-9._-]', '-', inp)
+    inp = re.sub(r'-{2,}', '-', inp)
+    return inp
+
+
 def create_worker_exp_dir(worker_base_dir, backend_data: BackendData):
-    wname = re.sub(r'[^a-zA-Z0-9._-]', '', backend_data.name or "")
-    waddr = re.sub(r'[^a-zA-Z0-9._-]', '', backend_data.address or "")
-    wid = re.sub(r'[^a-zA-Z0-9._-]', '', backend_data.id[:8] or "")
+    wname = pathfix(backend_data.name or "")
+    waddr = pathfix(backend_data.address or "")
+    wid = pathfix(backend_data.id[:8] or "")
     exp_dir = os.path.join(worker_base_dir, 'workers', '%s-%s-%s' % (waddr, wname, wid))
     rtt_worker.create_experiments_dir(exp_dir)
     rtt_worker.copy_templates_dir(worker_base_dir, exp_dir)
