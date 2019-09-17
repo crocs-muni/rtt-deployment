@@ -565,6 +565,23 @@ def create_forwarder(main_config, mysql_param=None) -> (rtt_worker.SSHForwarder,
     return forwarder, mysql_param
 
 
+def load_rtt_settings(db):
+    sql = "SELECT id, `name`, `value` from rtt_settings"
+    try:
+        settings = {}
+        cursor = db.cursor()
+        cursor.execute(sql)
+
+        for row in cursor.fetchall():
+            settings[row[1]] = row[2]
+
+        return settings
+
+    except Exception as e:
+        logger.error("Exception in loading settings: %s" % (e,), e)
+        rand_sleep()
+
+
 def test_rtt_binary_compatibility():
     for idx in range(3):
         try:
@@ -801,6 +818,13 @@ def main():
 
             # refresh worker keep-alive
             refresh_backend_record(db, backend_data)
+            csettings = load_rtt_settings(db)
+            if not backend_data.type_longterm and 'shortterm-disable' in csettings:
+                should_disable = int(csettings['shortterm-disable'])
+                if should_disable and should_disable >= time.time():
+                    logger.info("Shorrterm disabled until %s" % should_disable)
+                    rand_sleep(30, 5)
+                    continue
 
             # Cleanup
             # Reset unfinished jobs, only by long-term workers to avoid locking on cleanup actions

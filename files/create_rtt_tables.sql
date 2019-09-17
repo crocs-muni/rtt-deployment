@@ -118,6 +118,13 @@ CREATE TABLE IF NOT EXISTS user_settings (
     FOREIGN KEY (variant_id) REFERENCES variants(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = INNODB;
 
+CREATE TABLE IF NOT EXISTS rtt_settings (
+    id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
+    name                VARCHAR(100) NOT NULL,
+    value               VARCHAR(50) NOT NULL,
+    UNIQUE(name)
+) ENGINE = INNODB;
+
 CREATE TABLE IF NOT EXISTS subtests (
     id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
     subtest_index       INT UNSIGNED NOT NULL,
