@@ -42,6 +42,10 @@ CREATE TABLE IF NOT EXISTS jobs (
 -- ADD COLUMN worker_pid          INT UNSIGNED DEFAULT NULL AFTER worker_id,
 -- ADD COLUMN retries             INT UNSIGNED DEFAULT 0 AFTER worker_pid;
 
+-- ALTER TABLE batteries
+-- ADD COLUMN job_id          BIGINT UNSIGNED DEFAULT NULL AFTER experiment_id;
+-- ALTER TABLE batteries ADD CONSTRAINT fk_job_id FOREIGN KEY (job_id) REFERENCES jobs(id);
+
 CREATE TABLE IF NOT EXISTS batteries (
     id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
     name                VARCHAR(255) NOT NULL,
@@ -49,7 +53,9 @@ CREATE TABLE IF NOT EXISTS batteries (
     total_tests         BIGINT UNSIGNED NOT NULL,
     alpha               DOUBLE NOT NULL,
     experiment_id       BIGINT UNSIGNED NOT NULL,
+    job_id              BIGINT UNSIGNED DEFAULT NULL,
     FOREIGN KEY (experiment_id) REFERENCES experiments(id) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = INNODB;
 
 CREATE TABLE IF NOT EXISTS battery_errors (
