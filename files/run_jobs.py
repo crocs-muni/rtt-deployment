@@ -164,22 +164,25 @@ def get_job_info(connection):
 
     # Looking for experiments whose data are already cached
     # on the node
+    logger.info("Pending jobs by experiment ID: %s, loaded in: %.2f" % (cursor.rowcount, time_exp_cached))
     pending_exps = randomize_first_n(list(cursor.fetchall()), 500)
     for row in pending_exps:
         experiment_id = row[0]
         cache_data = get_data_path(cache_data_dir, experiment_id)
-        if os.path.exists(cache_data):
-            logger.debug("Trying to acquire random job with exp_id=%s" % (experiment_id, ))
-            cursor.execute(sql_sel_job, (experiment_id, ))
-            if cursor.rowcount == 0:
-                logger.info("All pending jobs for cached data are gone, retry later, query time: %.2f" % time_exp_cached)
-                continue
+        if not os.path.exists(cache_data):
+            continue
 
-            row = cursor.fetchone()
-            job_info = JobInfo(row[0], row[1], row[2])
-            cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id))
-            connection.commit()
-            return job_info
+        logger.debug("Trying to acquire random job with exp_id=%s" % (experiment_id, ))
+        cursor.execute(sql_sel_job, (experiment_id, ))
+        if cursor.rowcount == 0:
+            logger.info("All pending jobs for cached data are gone, retry later, query time: %.2f" % time_exp_cached)
+            continue
+
+        row = cursor.fetchone()
+        job_info = JobInfo(row[0], row[1], row[2])
+        cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id))
+        connection.commit()
+        return job_info
     rand_sleep()
 
     # If program gets here, no relevant cached files were found
@@ -189,10 +192,11 @@ def get_job_info(connection):
     logger.debug("Selecting pending experiments...")
     time_exp_pending = -time.time()
     cursor.execute("""SELECT id FROM experiments
-                      WHERE status='pending'""")
+                      WHERE status='pending'
+                      ORDER BY id LIMIT 5000""")
     time_exp_pending += time.time()
 
-    logger.debug("Number of pending experiments: %s" % cursor.rowcount)
+    logger.debug("Number of pending experiments: %s, loaded in %.2f s" % (cursor.rowcount, time_exp_pending))
     pending_exps = randomize_first_n(list(cursor.fetchall()), 500)
     for row in pending_exps:
         experiment_id = row[0]
@@ -214,11 +218,13 @@ def get_job_info(connection):
     # started by other nodes before. So now just pick one job and execute him.
     # No need for check for existence, table is locked and check is at the beginning
     logger.debug("Selecting pending jobs...")
+    time_job_pending = -time.time()
     cursor.execute("SELECT id "
                    "FROM jobs WHERE status='pending' "
                    "ORDER BY id LIMIT 5000 ")
+    time_job_pending += time.time()
 
-    logger.debug("Number of pending jobs: %s" % cursor.rowcount)
+    logger.debug("Number of pending jobs: %s, loaded in %.2f s" % (cursor.rowcount, time_job_pending))
     pending_jobs = randomize_first_n(list(cursor.fetchall()), 500)
     for row in pending_jobs:
         logger.debug("Trying to acquire job with id=%s" % (row[0],))
