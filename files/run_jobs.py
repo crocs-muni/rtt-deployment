@@ -818,7 +818,7 @@ def main():
             except SystemExit as e:
                 logger.debug("No jobs to process")
                 if args.run_time and args.all_time:
-                    rand_sleep(30, 5)
+                    rand_sleep(40, 5)
                     continue
 
                 else:
@@ -826,7 +826,7 @@ def main():
 
             except Exception as e:
                 logger.info("Exception in job fetch: %s" % e)
-                rand_sleep(10, 3)
+                rand_sleep(25, 3)
                 continue
 
             logger.info("Job fetched, ID: %s, expId: %s" % (job_info.id, job_info.experiment_id))
