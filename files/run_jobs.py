@@ -818,11 +818,21 @@ def main():
 
             # refresh worker keep-alive
             refresh_backend_record(db, backend_data)
+
+            # Settings
             csettings = load_rtt_settings(db)
             if not backend_data.type_longterm and 'shortterm-disable' in csettings:
                 should_disable = int(csettings['shortterm-disable'])
                 if should_disable and should_disable >= time.time():
                     logger.info("Shorrterm disabled until %s, remaining: %.2f" % (should_disable, time.time() - should_disable))
+                    rand_sleep(30, 5)
+                    continue
+
+            if backend_data.type_longterm and 'longterm-disable' in csettings:
+                should_disable = int(csettings['longterm-disable'])
+                if should_disable and should_disable >= time.time():
+                    logger.info(
+                        "Longterm disabled until %s, remaining: %.2f" % (should_disable, time.time() - should_disable))
                     rand_sleep(30, 5)
                     continue
 
