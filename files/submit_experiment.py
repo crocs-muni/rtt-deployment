@@ -5,6 +5,17 @@
 # It is meant to be executed by user.           #
 #################################################
 
+# How to compile the 'submit_experiment' binary:
+
+"""
+cd /opt/rtt-submit-experiment
+/bin/rm -rf build/ dist/
+pyinstaller -F submit_experiment.py
+mv dist/submit_experiment .
+chgrp rtt_admin submit_experiment
+chmod g+s submit_experiment
+"""
+
 import configparser
 import MySQLdb
 import os
