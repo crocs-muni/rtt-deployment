@@ -849,7 +849,7 @@ def main():
 
             # Cleanup
             # Reset unfinished jobs, only by long-term workers to avoid locking on cleanup actions
-            if backend_data.type_longterm and time.time() - time_last_cleanup > 120:
+            if backend_data.type_longterm and time.time() - time_last_cleanup > 5*60:
                 try:
                     reset_jobs(db)
                     time_last_cleanup = time.time()
