@@ -816,6 +816,10 @@ def main():
                     logger.info("Time running: %.2f remaining: %.2f, terminating" % (time_running, time_left))
                     raise SystemExit()
 
+                if time_left < 60*10:
+                    logger.info("Time running: %.2f remaining: %.2f, terminating" % (time_running, time_left))
+                    raise SystemExit()
+
             # refresh worker keep-alive
             refresh_backend_record(db, backend_data)
 
