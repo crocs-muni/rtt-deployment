@@ -773,6 +773,7 @@ def main():
     killer = rtt_utils.GracefulKiller()
     time_last_report = time.time() - 10
     time_last_cleanup = time.time() - 30
+    cleanup_interval = 5*60
     ############################################################
     # Execution try block. If error happens during execution   #
     # database is rollback'd to last commit. Already finished  #
@@ -847,9 +848,12 @@ def main():
                         "Terminating as this job is old %s vs started %s" % (terminate_older, time_start))
                     raise SystemExit()
 
+            if 'cleanup-interval' in csettings:
+                cleanup_interval = int(csettings['cleanup-interval'])
+
             # Cleanup
             # Reset unfinished jobs, only by long-term workers to avoid locking on cleanup actions
-            if backend_data.type_longterm and time.time() - time_last_cleanup > 5*60:
+            if backend_data.type_longterm and time.time() - time_last_cleanup > cleanup_interval:
                 try:
                     reset_jobs(db)
                     time_last_cleanup = time.time()
