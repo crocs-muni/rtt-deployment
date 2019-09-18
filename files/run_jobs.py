@@ -840,6 +840,13 @@ def main():
                     rand_sleep(30, 5)
                     continue
 
+            if 'terminate-older' in csettings:
+                terminate_older = int(csettings['terminate-older'])
+                if terminate_older and terminate_older >= time_start:
+                    logger.info(
+                        "Terminating as this job is old %s vs started %s" % (terminate_older, time_start))
+                    raise SystemExit()
+
             # Cleanup
             # Reset unfinished jobs, only by long-term workers to avoid locking on cleanup actions
             if backend_data.type_longterm and time.time() - time_last_cleanup > 120:
