@@ -11,10 +11,15 @@ import os
 import sys
 import argparse
 import hashlib
+import logging
 import paramiko
 from common.clilogging import *
 from common.rtt_db_conn import *
 from common.rtt_sftp_conn import *
+
+
+logger = logging.getLogger(__name__)
+
 
 ################################
 # Global variables declaration #
@@ -112,7 +117,20 @@ def upload_data(local_data_file, local_config_file, experiment_id, sftp):
     sftp.put(local_data_file, storage_data_file)
     sftp.put(local_config_file, storage_config_file)
     print_info("File transfer complete.")
-    
+
+
+def try_execute(fnc, attempts=40, msg=""):
+    for att in range(attempts):
+        try:
+            fnc()
+            return
+
+        except Exception as e:
+            logger.error("Exception in executing function, %s, att=%s, msg=%s" % (e, att, msg))
+            if att - 1 == attempts:
+                raise
+    raise ValueError("Should not happen, failstop")
+
 
 #################
 # MAIN FUNCTION #
@@ -181,8 +199,10 @@ def main():
         sql_ins_experiment = "INSERT INTO experiments " \
                              "(name, author_email, config_file, data_file, data_file_sha256) " \
                              "VALUES(%s,%s,%s,%s,%s)"
-        cursor.execute(sql_ins_experiment, (args.name, args.email, args.cfg, args.file, 
-                                            sha256file(args.file)))
+
+        try_execute(lambda: cursor.execute(sql_ins_experiment, (args.name, args.email, args.cfg, args.file, sha256file(args.file))),
+                    msg="Experiment insert %s" % args.file)
+
         experiment_id = cursor.lastrowid
         print_info("Created new experiment with id {}".format(experiment_id))
         # Uploading data to storage server
@@ -193,7 +213,9 @@ def main():
                       "VALUES(%s,%s)"
         for key in battery_flags:
             if picked_batts & battery_flags[key]:
-                cursor.execute(sql_ins_job, (key, experiment_id))
+                try_execute(lambda: cursor.execute(sql_ins_job, (key, experiment_id)),
+                            msg="Job insert, %s, %s" % (args.file, key))
+
                 print_info("Created job with id {}.".format(cursor.lastrowid))
         
         # Final commit - the jobs and experiment will be now visible
