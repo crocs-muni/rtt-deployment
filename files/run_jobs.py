@@ -87,12 +87,11 @@ def reset_jobs(connection):
     cursor = connection.cursor()
     sql_select_reset_job = \
         """
-        SELECT id, battery, experiment_id FROM jobs
+        SELECT id, battery, experiment_id, lock_version FROM jobs
         WHERE status='running' 
           AND run_started > DATE_SUB(NOW(), INTERVAL 3 DAY)
           AND run_heartbeat < DATE_SUB(NOW(), INTERVAL 15 MINUTE)
           AND retries < 10
-          FOR UPDATE
         """
 
     try:
@@ -103,10 +102,15 @@ def reset_jobs(connection):
         logger.info("Going to reset %s jobs" % cursor.rowcount)
         for row in list(cursor.fetchall()):
             jid = row[0]
-            purge_unfinished_job(cursor, jid, eid=row[2], battery=row[1])
 
             logger.info("Base job reset %s" % jid)
-            cursor.execute("UPDATE jobs set status='pending', retries=retries+1 WHERE id=%s AND status='running'", (jid,))
+            cursor.execute("UPDATE jobs set status='pending', retries=retries+1, lock_version=lock_version+1 "
+                           "WHERE id=%s AND lock_version=%s AND status='running'", (jid, row[3]))
+
+            if cursor.rowcount <= 0:
+                logger.info("Update failed, opt lock not acquired")
+
+            purge_unfinished_job(cursor, jid, eid=row[2], battery=row[1])
 
         logger.info("Jobs cleaned")
 
