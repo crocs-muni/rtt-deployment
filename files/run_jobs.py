@@ -407,6 +407,16 @@ def try_clean_logs(log_dir):
         rand_sleep()
 
 
+def try_clean_workers(workers):
+    try:
+        logger.info("Cleaning the worker dir %s" % workers)
+        res = rtt_utils.clean_log_files(workers)
+        logger.info("Worker dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
+
+    except Exception as e:
+        logger.error("Worker dir cleanup exception", e)
+
+
 def purge_unfinished_job(cursor, job_id, eid, battery):
     try:
         logger.info("Purging job ID: %s, experiment ID: %s, battery: %s" % (job_id, eid, battery))
@@ -670,6 +680,10 @@ def main():
                         help='MySQL port override')
     parser.add_argument('--forwarded-mysql', dest='forwarded_mysql', default=None, type=int,
                         help='Use SSH-forwarded MySQL connection')
+    parser.add_argument('--cleanup-only', dest='cleanup_only', default=None, type=int,
+                        help='Cleanup only')
+    parser.add_argument('--clean-jobs', dest='clean_jobs', default=None, type=int,
+                        help='Cleanup jobs stucked in running state')
     parser.add_argument('config', default=None,
                         help='Config file')
     args = parser.parse_args()
@@ -705,6 +719,7 @@ def main():
         rtt_binary = main_cfg.get('RTT-Binary', 'Binary-path')
         rtt_root_dir = get_rtt_root_dir(cache_config_dir)
         rtt_log_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.EXEC_LOGS_TOP_DIR)
+        rtt_work_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.RTT_EXECUTION_DIR, 'workers')
         backend_data.id = args.id if args.id else main_cfg.get('Backend', 'backend-id')
         backend_data.name = args.name if args.name else main_cfg.get('Backend', 'backend-name', fallback=None)
         backend_data.location = args.location if args.location else main_cfg.get('Backend', 'backend-loc', fallback=None)
@@ -786,7 +801,9 @@ def main():
 
     # Ensure the worker is stored in the database so we can reference it
     logger.info("Checking worker record")
-    ensure_backend_record(db, backend_data)
+    if not args.cleanup_only:
+        ensure_backend_record(db, backend_data)
+
     killer = rtt_utils.GracefulKiller()
     time_last_report = time.time() - 10
     time_last_cleanup = time.time() - 30
@@ -803,6 +820,9 @@ def main():
 
     try:
         rand_sleep()
+        if args.cleanup_only:
+            reset_jobs(db)
+            raise SystemExit()
 
         logger.info("Creating worker scratch dir")
         worker_exp_dir = create_worker_exp_dir(worker_base_dir, backend_data)
@@ -873,7 +893,7 @@ def main():
 
             # Cleanup
             # Reset unfinished jobs, only by long-term workers to avoid locking on cleanup actions
-            if backend_data.type_longterm and time.time() - time_last_cleanup > cleanup_interval:
+            if args.clean_jobs and time.time() - time_last_cleanup > cleanup_interval:
                 try:
                     reset_jobs(db)
                     time_last_cleanup = time.time()
@@ -955,16 +975,17 @@ def main():
         db.close()
         sftp.close()
 
-        if args.clean_cache:
+        if args.clean_cache or args.cleanup_only:
             try_clean_cache(main_cfg_file, mysql_params=mysql_params)
-        if args.clean_logs:
+        if args.clean_logs or args.cleanup_only:
             try_clean_logs(rtt_log_dir)
+        if args.clean_logs or args.cleanup_only:
+            try_clean_workers(rtt_work_dir)
         if mysql_forwarder:
             mysql_forwarder.shutdown()
         rtt_utils.try_remove_rf(worker_exp_dir)
 
         logger.info("System exit, terminating")
-        print_info("Terminating.")
         os.umask(old_mask)
 
     except BaseException as e:
