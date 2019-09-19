@@ -104,13 +104,16 @@ def reset_jobs(connection):
             jid = row[0]
 
             logger.info("Base job reset %s" % jid)
-            cursor.execute("UPDATE jobs set status='pending', retries=retries+1, lock_version=lock_version+1 "
+            cursor.execute("UPDATE jobs SET status='error', retries=retries+1, lock_version=lock_version+1 "
                            "WHERE id=%s AND lock_version=%s AND status='running'", (jid, row[3]))
 
             if cursor.rowcount <= 0:
                 logger.info("Update failed, opt lock not acquired")
 
             purge_unfinished_job(cursor, jid, eid=row[2], battery=row[1])
+
+            cursor.execute("UPDATE jobs SET status='pending', lock_version=lock_version+1 "
+                           "WHERE id=%s AND lock_version=%s AND status='error'", (jid, row[3] + 1))
 
         logger.info("Jobs cleaned")
 
