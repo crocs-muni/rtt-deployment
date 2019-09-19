@@ -19,6 +19,7 @@ cd "${BASEDR}"
 
 set -o pipefail
 . $HMDIR/pyenv-brno3.sh
+pyenv local 3.7.1
 
 exec stdbuf -eL python ./run_jobs.py $BASEDR/backend.ini \\
   --forwarded-mysql 1 \\
