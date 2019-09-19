@@ -1,1 +1,1 @@
-mysqlclient sarge requests shellescape coloredlogs filelock sshtunnel cryptography paramiko configparser pyinstaller
+mysqlclient sarge requests shellescape coloredlogs filelock sshtunnel cryptography paramiko configparser

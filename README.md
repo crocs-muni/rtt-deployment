@@ -27,7 +27,7 @@ net.core.somaxconn=2048
 We recommend Python 3.7.1
 
 ```bash
-pip install -U mysqlclient sarge requests shellescape coloredlogs filelock sshtunnel cryptography paramiko configparser pyinstaller
+pip install -U mysqlclient sarge requests shellescape coloredlogs filelock sshtunnel cryptography paramiko configparser
 ```
 
 ### Submit_experiment binary
