@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     worker_id           BIGINT UNSIGNED DEFAULT NULL,
     worker_pid          INT UNSIGNED DEFAULT NULL,
     retries             INT UNSIGNED DEFAULT 0,
+    lock_version        INT UNSIGNED DEFAULT 0,
     KEY `jobs_status` (`status`),
     KEY `experiment_id` (`experiment_id`),
     FOREIGN KEY (experiment_id) REFERENCES experiments(id) ON DELETE CASCADE ON UPDATE CASCADE
@@ -41,6 +42,9 @@ CREATE TABLE IF NOT EXISTS jobs (
 -- ALTER TABLE jobs
 -- ADD COLUMN worker_pid          INT UNSIGNED DEFAULT NULL AFTER worker_id,
 -- ADD COLUMN retries             INT UNSIGNED DEFAULT 0 AFTER worker_pid;
+
+-- ALTER TABLE jobs
+-- ADD COLUMN lock_version        INT UNSIGNED DEFAULT 0 AFTER retries;
 
 -- ALTER TABLE batteries
 -- ADD COLUMN job_id          BIGINT UNSIGNED DEFAULT NULL AFTER experiment_id;

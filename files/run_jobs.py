@@ -119,33 +119,41 @@ def reset_jobs(connection):
         logger.info("Jobs clean finished")
 
 
-def get_job_info(connection):
+def get_job_info(connection, num_workers=1000):
     global backend_data
     cursor = connection.cursor()
 
     # Preparing sql expressions
     sql_upd_job_running = \
-        """UPDATE jobs SET run_started=NOW(), status='running', run_heartbeat=NOW(), worker_id=%s, worker_pid=%s 
-           WHERE id=%s"""
+        """UPDATE jobs SET run_started=NOW(), status='running', run_heartbeat=NOW(), 
+           worker_id=%s, worker_pid=%s, lock_version=lock_version+1 
+           WHERE id=%s AND lock_version=%s"""
     sql_upd_experiment_running = \
-        """UPDATE experiments SET run_started=NOW(), status='running' WHERE id=%s"""
+        """UPDATE experiments SET run_started=NOW(), status='running' WHERE status='pending' AND id=%s"""
     sql_sel_job = \
-        """SELECT id, experiment_id, battery
+        """SELECT id, experiment_id, battery, lock_version 
            FROM jobs
            WHERE status='pending' AND experiment_id=%s 
-           ORDER BY RAND() LIMIT 1 
-           FOR UPDATE"""
-    sql_sel_job_id = \
-        """SELECT id, experiment_id, battery
-           FROM jobs
-           WHERE status='pending' AND id=%s 
-           FOR UPDATE"""
+           """
+    sql_sel_exps = \
+        """SELECT experiment_id FROM jobs 
+        WHERE status='pending' GROUP BY experiment_id 
+        ORDER BY experiment_id LIMIT %d 
+        """ % (4 * num_workers,)
+    sql_sel_exp_pending = \
+        """SELECT id FROM experiments 
+           WHERE status='pending' 
+           ORDER BY id LIMIT %d
+         """ % (4 * num_workers,)
+    sql_sel_jobs_pending = \
+        """SELECT id, experiment_id, battery, lock_version 
+           FROM jobs WHERE status='pending' 
+           ORDER BY id LIMIT %d
+           """ % (4 * num_workers,)
 
     # Looking for jobs whose files are already present in local cache
     time_exp_cached = -time.time()
-    cursor.execute("SELECT experiment_id FROM jobs "
-                   "WHERE status='pending' GROUP BY experiment_id "
-                   "ORDER BY experiment_id LIMIT 5000")
+    cursor.execute(sql_sel_exps)
     time_exp_cached += time.time()
 
     # This terminates script if there are no pending jobs
@@ -157,7 +165,7 @@ def get_job_info(connection):
     # Looking for experiments whose data are already cached
     # on the node
     logger.info("Pending jobs by experiment ID: %s, loaded in: %.2f" % (cursor.rowcount, time_exp_cached))
-    pending_exps = randomize_first_n(list(cursor.fetchall()), 500)
+    pending_exps = randomize_first_n(list(cursor.fetchall()), num_workers)
     for row in pending_exps:
         experiment_id = row[0]
         cache_data = get_data_path(cache_data_dir, experiment_id)
@@ -170,11 +178,17 @@ def get_job_info(connection):
             logger.info("All pending jobs for cached data are gone, retry later, query time: %.2f" % time_exp_cached)
             continue
 
-        row = cursor.fetchone()
-        job_info = JobInfo(row[0], row[1], row[2])
-        cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id))
-        connection.commit()
-        return job_info
+        crows = randomize_first_n(list(cursor.fetchall()), num_workers)
+        for crow in crows:
+            job_info = JobInfo(crow[0], crow[1], crow[2])
+
+            logger.debug("Trying to acquire job %s" % (crow,))
+            cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, crow[3]))
+            if cursor.rowcount <= 0:
+                continue  # taken already
+
+            connection.commit()
+            return job_info
     rand_sleep()
 
     # If program gets here, no relevant cached files were found
@@ -183,13 +197,11 @@ def get_job_info(connection):
     # each experiment is computed by single node, given enough experiments are available
     logger.debug("Selecting pending experiments...")
     time_exp_pending = -time.time()
-    cursor.execute("""SELECT id FROM experiments
-                      WHERE status='pending'
-                      ORDER BY id LIMIT 5000""")
+    cursor.execute(sql_sel_exp_pending)
     time_exp_pending += time.time()
 
     logger.debug("Number of pending experiments: %s, loaded in %.2f s" % (cursor.rowcount, time_exp_pending))
-    pending_exps = randomize_first_n(list(cursor.fetchall()), 500)
+    pending_exps = randomize_first_n(list(cursor.fetchall()), num_workers)
     for row in pending_exps:
         experiment_id = row[0]
         logger.debug("Trying to acquire random job with exp_id=%s" % (experiment_id,))
@@ -198,12 +210,19 @@ def get_job_info(connection):
             logger.info("All pending jobs are gone for this experiment %s, retry later, query time: %.2f" % (experiment_id, time_exp_pending))
             continue
 
-        row = cursor.fetchone()
-        job_info = JobInfo(row[0], row[1], row[2])
-        cursor.execute(sql_upd_experiment_running, (experiment_id, ))
-        cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
-        connection.commit()
-        return job_info
+        crows = randomize_first_n(list(cursor.fetchall()), num_workers)
+        for crow in crows:
+            job_info = JobInfo(crow[0], crow[1], crow[2])
+
+            logger.debug("Trying to acquire job %s" % (crow, ))
+            cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, crow[3]))
+            if cursor.rowcount <= 0:
+                continue  # taken already
+
+            cursor.execute(sql_upd_experiment_running, (experiment_id, ))
+            connection.commit()
+            return job_info
+
     rand_sleep()
 
     # If program gets here it means that there are no experiments that haven't been
@@ -211,22 +230,19 @@ def get_job_info(connection):
     # No need for check for existence, table is locked and check is at the beginning
     logger.debug("Selecting pending jobs...")
     time_job_pending = -time.time()
-    cursor.execute("SELECT id "
-                   "FROM jobs WHERE status='pending' "
-                   "ORDER BY id LIMIT 5000 ")
+    cursor.execute(sql_sel_jobs_pending)
     time_job_pending += time.time()
 
     logger.debug("Number of pending jobs: %s, loaded in %.2f s" % (cursor.rowcount, time_job_pending))
-    pending_jobs = randomize_first_n(list(cursor.fetchall()), 500)
+    pending_jobs = randomize_first_n(list(cursor.fetchall()), num_workers)
     for row in pending_jobs:
         logger.debug("Trying to acquire job with id=%s" % (row[0],))
-        cursor.execute(sql_sel_job_id, (row[0],))
-        if cursor.rowcount == 0:
-            continue
 
-        row = cursor.fetchone()
         job_info = JobInfo(row[0], row[1], row[2])
-        cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, ))
+        cursor.execute(sql_upd_job_running, (backend_data.id_key, os.getpid(), job_info.id, row[3]))
+        if cursor.rowcount <= 0:
+            continue  # not pending now, maybe taken. go to the next one...
+
         connection.commit()
         return job_info
 
@@ -664,6 +680,7 @@ def main():
         sys.exit(1)
 
     # All the new generated files will have permissions rwxrwx---
+    num_workers = 1000
     old_mask = os.umask(0o007)
     main_cfg_file = args.config
     time_start = time.time()
@@ -851,6 +868,9 @@ def main():
             if 'cleanup-interval' in csettings:
                 cleanup_interval = int(csettings['cleanup-interval'])
 
+            if 'num-workers' in csettings:
+                num_workers = int(csettings['num-workers'])
+
             # Cleanup
             # Reset unfinished jobs, only by long-term workers to avoid locking on cleanup actions
             if backend_data.type_longterm and time.time() - time_last_cleanup > cleanup_interval:
@@ -866,7 +886,7 @@ def main():
             job_info = None
             try:
                 logger.info("Loading jobs to process")
-                job_info = get_job_info(db)  # type: JobInfo
+                job_info = get_job_info(db, num_workers=num_workers)  # type: JobInfo
             except SystemExit as e:
                 logger.debug("No jobs to process")
                 if args.run_time and args.all_time:
