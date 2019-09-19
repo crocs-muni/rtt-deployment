@@ -13,12 +13,12 @@ import sys
 logger = logging.getLogger(__name__)
 JOB_TEMPLATE = """#!/bin/bash
 
-export HMDIR="/storage/brno6/home/ph4r05"
+export HMDIR="/storage/brno3-cerit/home/ph4r05"
 export BASEDR="$HMDIR/rtt_worker"
 cd "${BASEDR}"
 
 set -o pipefail
-. $HMDIR/pyenv-brno6.sh
+. $HMDIR/pyenv-brno3.sh
 
 exec stdbuf -eL python ./run_jobs.py $BASEDR/backend.ini \\
   --forwarded-mysql 1 \\
