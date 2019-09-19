@@ -911,6 +911,7 @@ def main():
             try:
                 logger.info("Loading jobs to process")
                 job_info = get_job_info(db, num_workers=num_workers)  # type: JobInfo
+
             except SystemExit as e:
                 logger.debug("No jobs to process")
                 if args.run_time and args.all_time:
@@ -921,8 +922,10 @@ def main():
                     raise
 
             except Exception as e:
-                logger.info("Exception in job fetch: %s" % e)
-                rand_sleep(25, 3)
+                is_timeout = rtt_utils.is_lock_timeout_exception(e)
+                logger.info("Exception in job fetch: %s (%s), is timeout: %s" % (e, type(s), is_timeout))
+                if not is_timeout:
+                    rand_sleep(25, 3)
                 continue
 
             logger.info("Job fetched, ID: %s, expId: %s" % (job_info.id, job_info.experiment_id))

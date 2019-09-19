@@ -217,3 +217,22 @@ def install_filelock_filter():
 def extend_lib_path(path):
     ld_path = os.getenv('LD_LIBRARY_PATH', None)
     return '%s:%s' % (ld_path, path) if ld_path else path
+
+
+def is_lock_timeout_exception(e):
+    if not e:
+        return False
+    try:
+        if isinstance(e, (tuple, list)):
+            return e[0] in [1205, 1213]
+        s = str(e)
+        if 'Deadlock found' in s:
+            return True
+        if 'Lock wait timeout exceeded' in s:
+            return True
+
+    except:
+        pass
+
+    return False
+
