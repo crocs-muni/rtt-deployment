@@ -28,6 +28,8 @@ def try_fnc(fnc):
 
 
 def try_remove_rf(start):
+    if not start:
+        return
     return try_remove(lambda: shutil.rmtree(start, True))
 
 
