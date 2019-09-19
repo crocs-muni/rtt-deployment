@@ -22,8 +22,6 @@ from common import rtt_constants
 
 
 logger = logging.getLogger(__name__)
-coloredlogs.CHROOT_FILES = []
-coloredlogs.install(level=logging.DEBUG, use_chroot=False)
 
 
 ################################
@@ -66,6 +64,16 @@ def try_clean_logs(log_dir):
         logger.error("Log dir cleanup exception", e)
 
 
+def try_clean_workers(workers):
+    try:
+        logger.info("Cleaning the worker dir %s" % workers)
+        res = rtt_utils.clean_log_files(workers)
+        logger.info("Worker dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
+
+    except Exception as e:
+        logger.error("Worker dir cleanup exception", e)
+
+
 def get_rtt_root_dir(config_dir):
     config_els = config_dir.split(os.sep)
     base_els = rtt_constants.Backend.CACHE_CONFIG_DIR.split(os.sep)
@@ -95,6 +103,7 @@ def clean_caches(main_cfg_file, mysql_params=None):
 
     rtt_root_dir = get_rtt_root_dir(cache_config_dir)
     rtt_log_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.EXEC_LOGS_TOP_DIR)
+    rtt_work_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.RTT_EXECUTION_DIR, 'workers')
 
     mysql_params = mysql_params if mysql_params else \
         mysql_load_params(main_cfg)
@@ -124,6 +133,7 @@ def clean_caches(main_cfg_file, mysql_params=None):
         db.close()
 
     try_clean_logs(rtt_log_dir)
+    try_clean_workers(rtt_work_dir)
 
 
 #################
@@ -140,6 +150,8 @@ def main():
 
 
 if __name__ == "__main__":
+    coloredlogs.CHROOT_FILES = []
+    coloredlogs.install(level=logging.DEBUG, use_chroot=False)
     print_start("clean-cache")
     main()
     print_end()
