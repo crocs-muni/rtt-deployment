@@ -23,8 +23,6 @@ pyenv local 3.7.1
 
 exec stdbuf -eL python ./run_jobs.py $BASEDR/backend.ini \\
   --forwarded-mysql 1 \\
-  --clean-cache 1 \\
-  --clean-logs 1 \\
   --deactivate 1 \\
   --name {{{NAME}}} \\
   --id {{{ID}}} \\
@@ -36,6 +34,11 @@ exec stdbuf -eL python ./run_jobs.py $BASEDR/backend.ini \\
   2> {{{LOG_ERR}}} > {{{LOG_OUT}}}
 """
 
+"""
+  --clean-cache 1 \\
+  --clean-logs 1 \\
+  x
+"""
 
 class JobGenerator:
     def __init__(self):
