@@ -97,9 +97,9 @@ autoreconf -i && ./configure --enable-static --prefix=`pwd`/../install --enable-
 ./run_jobs.py /rtt_backend/backend.ini --forwarded-mysql 1 --clean-cache 1 --clean-logs 1 --deactivate 1 --name 'meta:tester' --id 'meta:tester' --location 'metacentrum' --longterm 0
 
 # DB access
-ssh -i /storage/brno6/home/ph4r05/rtt_worker/credentials/storage_ssh_key rtt_storage@147.251.124.16 -L 3306:192.168.3.171:3306 -N
+ssh -i /storage/brno6/home/ph4r05/rtt_worker/credentials/storage_ssh_key rtt_storage@147.251.124.16 -L 3306:192.168.3.164:3306 -N
 
-sshtunnel -K /storage/brno6/home/ph4r05/rtt_worker/credentials/storage_ssh_key -R 192.168.3.171:3306  -U rtt_storage 147.251.124.16 -S 'pSW^+kiogGeItQTwnqXt5gWVi<L?xf' -L :3336
+sshtunnel -K /storage/brno6/home/ph4r05/rtt_worker/credentials/storage_ssh_key -R 192.168.3.164:3306  -U rtt_storage 147.251.124.16 -S 'pSW^+kiogGeItQTwnqXt5gWVi<L?xf' -L :3336
 
 
 # Job run
