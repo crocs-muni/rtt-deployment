@@ -926,7 +926,7 @@ def main():
 
             except Exception as e:
                 is_timeout = rtt_utils.is_lock_timeout_exception(e)
-                logger.info("Exception in job fetch: %s (%s), is timeout: %s" % (e, type(s), is_timeout))
+                logger.info("Exception in job fetch: %s (%s), is timeout: %s" % (e, type(e), is_timeout))
                 if not is_timeout:
                     rand_sleep(25, 3)
                 continue
