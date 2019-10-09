@@ -643,6 +643,32 @@ def test_rtt_binary_compatibility():
     raise ValueError("RTT is not binary compatible with this system")
 
 
+def pack_log_dir(worker_exp_dir, exp_log_dir, job_info, backend_data):
+    arch_base = os.path.join(exp_log_dir, '%s-%s' % (job_info.id, backend_data.id_key))
+
+    exp_dir = worker_exp_dir.rstrip('/')
+    exp_parent, exp_dname = os.path.split(exp_dir)
+    args = 'tar -czvf %s.tar.gz %s' % (arch_base, exp_dname)
+
+    async_runner = rtt_worker.AsyncRunner(args, cwd=exp_parent, shell=True)
+    async_runner.log_out_after = False
+    async_runner.preexec_setgrp = True
+    async_runner.start()
+
+    tstart = time.time()
+    timeout = 5 * 60
+    while async_runner.is_running and time.time() - tstart < timeout:
+        time.sleep(0.2)
+
+    if async_runner.is_running:
+        logger.error("Compress process still running")
+        async_runner.shutdown()
+        return
+
+    logger.info("Result packer finished in %s, ret code: %s" % (time.time() - tstart, async_runner.ret_code))
+    return async_runner.ret_code
+
+
 #################
 # MAIN FUNCTION #
 #################
@@ -681,6 +707,8 @@ def main():
                         help='Clean cache after script termination')
     parser.add_argument('--clean-logs', dest='clean_logs', default=None, type=int,
                         help='Clean experiment logs after termination')
+    parser.add_argument('--log-dir', dest='log_dir', default=None,
+                        help='Experiment log dir')
     parser.add_argument('--db-host', dest='db_host', default=None,
                         help='MySQL host override')
     parser.add_argument('--db-port', dest='db_port', default=None, type=int,
@@ -704,6 +732,7 @@ def main():
     num_workers = 1000
     old_mask = os.umask(0o007)
     main_cfg_file = args.config
+    exp_log_dir = None
     time_start = time.time()
     rtt_utils.install_filelock_filter()
     
@@ -733,6 +762,7 @@ def main():
         backend_data.type_longterm = args.longterm if args.longterm is not None else main_cfg.getint('Backend', 'backend-longterm', fallback=False)
         backend_data.aux = args.aux if args.aux else main_cfg.get('Backend', 'backend-aux', fallback=None)
         max_sec_per_test = args.job_time if args.job_time else main_cfg.getint('Backend', 'Maximum-seconds-per-test', fallback=3800)
+        exp_log_dir = args.log_dir if args.log_dir else main_cfg.get('Backend', 'log-dir', fallback=None)
         if args.id_rand:
             backend_data.id = hashlib.md5(backend_data.name.encode('utf8')).hexdigest()
             logger.info("Generated worker ID: %s" % backend_data.id)
@@ -965,6 +995,10 @@ def main():
                 time.sleep(1)
 
             logger.info("Async command finished")
+            if 'nist' in job_info.battery and exp_log_dir:
+                logger.info('Packing worker dir %s to %s' % (worker_exp_dir, exp_log_dir))
+                pack_log_dir(worker_exp_dir, exp_log_dir, job_info, backend_data)
+
             if async_runner.ret_code != 0 or test_failed:
                 logger.error("RTT return code is not zero: %s (or timed out)" % async_runner.ret_code)
                 db.commit()
