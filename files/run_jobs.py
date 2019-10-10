@@ -12,7 +12,6 @@
 
 import configparser
 import os
-import subprocess
 import shlex
 import time
 import sys
@@ -27,8 +26,7 @@ import traceback
 import random
 import hashlib
 import itertools
-import socket
-import signal
+import binascii
 from common.clilogging import *
 from common.rtt_db_conn import *
 from common.rtt_sftp_conn import *
@@ -669,6 +667,15 @@ def pack_log_dir(worker_exp_dir, exp_log_dir, job_info, backend_data):
     return async_runner.ret_code
 
 
+def try_hash_file(fname):
+    try:
+        return rtt_utils.hash_file(fname=fname)
+
+    except Exception as e:
+        logger.error("Exception in hashing file %s: %s" % (fname, e))
+        return b""
+
+
 #################
 # MAIN FUNCTION #
 #################
@@ -965,9 +972,13 @@ def main():
             fetch_data(job_info.experiment_id, sftp)
             rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host, mysql_port=mysql_params.port,
                                          exp_dir=worker_exp_dir)
+            data_file_path = get_data_path(cache_data_dir, job_info.experiment_id)
+            data_hash_preexec = try_hash_file(data_file_path)
 
-            logger.info("Executing job: job_id {}, experiment_id {}"
-                       .format(job_info.id, job_info.experiment_id))
+            logger.info("Executing job: job_id {}, experiment_id {}, file {}, hash {}"
+                        .format(job_info.id, job_info.experiment_id,
+                                data_file_path, binascii.hexlify(data_hash_preexec)))
+
             logger.info("CMD: {}".format(rtt_args))
 
             time_job_start = time.time()
@@ -995,8 +1006,14 @@ def main():
                 time.sleep(1)
 
             logger.info("Async command finished")
-            if 'nist' in job_info.battery and exp_log_dir:
-                logger.info('Packing worker dir %s to %s' % (worker_exp_dir, exp_log_dir))
+
+            data_hash_postexec = try_hash_file(data_file_path)
+            logger.info("Data file hash: %s" % binascii.hexlify(data_hash_postexec))
+            if data_hash_preexec != data_hash_postexec:
+                logger.error("Data file hashes differ!")
+
+            if "nist" in job_info.battery and exp_log_dir:
+                logger.info("Packing worker dir %s to %s" % (worker_exp_dir, exp_log_dir))
                 pack_log_dir(worker_exp_dir, exp_log_dir, job_info, backend_data)
 
             if async_runner.ret_code != 0 or test_failed:

@@ -3,6 +3,7 @@ import time
 import logging
 import signal
 import shutil
+import hashlib
 from filelock import Timeout, FileLock
 
 
@@ -235,4 +236,25 @@ def is_lock_timeout_exception(e):
         pass
 
     return False
+
+
+def hash_file_fh(hasher, fh):
+    for byte_block in iter(lambda: fh.read(4*4096), b""):
+        hasher.update(byte_block)
+    return hasher
+
+
+def hash_file(fname=None, fh=None, hasher=None):
+    sha256_hash = hasher if hasher else hashlib.sha256()
+    if fh:
+        hash_file_fh(sha256_hash, fh)
+
+    elif fname:
+        with open(fname, "rb") as fh:
+            hash_file_fh(sha256_hash, fh)
+
+    else:
+        raise ValueError("Input file not specified")
+
+    return sha256_hash.digest()
 
