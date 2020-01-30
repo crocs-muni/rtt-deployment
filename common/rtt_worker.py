@@ -248,8 +248,8 @@ class AsyncRunner:
                 lines[-1] += clines[0]
                 lines.extend(clines[1:])
 
-            dst_cur[0] += lines[0]
             nlines = len(lines)
+            dst_cur[0] += lines[0]
             if nlines > 1:
                 process_line(dst_cur[0], is_err)
                 dst_cur[0] = ""
@@ -257,9 +257,12 @@ class AsyncRunner:
             for line in lines[1:-1]:
                 process_line(line, is_err)
 
-            dst_cur[0] = lines[-1] or ""
-            if finish and lines[-1]:
-                process_line(lines[-1], is_err)
+            if not finish and nlines > 1:
+                dst_cur[0] = lines[-1] or ""  # here if no lines....
+
+            if finish and (lines[-1] or dst_cur[0]):
+                cline = dst_cur[0] if nlines == 1 else lines[-1]
+                process_line(cline, is_err)
 
         try:
             while len(p.commands) == 0:
