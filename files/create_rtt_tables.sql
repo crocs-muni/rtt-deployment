@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS batteries (
     alpha               DOUBLE NOT NULL,
     experiment_id       BIGINT UNSIGNED NOT NULL,
     job_id              BIGINT UNSIGNED DEFAULT NULL,
-    FOREIGN KEY (experiment_id) REFERENCES experiments(id) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (experiment_id) REFERENCES experiments(id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = INNODB;
 
