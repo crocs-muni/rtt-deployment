@@ -50,6 +50,12 @@ CREATE TABLE IF NOT EXISTS jobs (
 -- ADD COLUMN job_id          BIGINT UNSIGNED DEFAULT NULL AFTER experiment_id;
 -- ALTER TABLE batteries ADD CONSTRAINT fk_job_id FOREIGN KEY (job_id) REFERENCES jobs(id);
 
+-- ALTER TABLE batteries
+-- ADD COLUMN pvalue        DOUBLE DEFAULT NULL AFTER job_id;
+
+-- ALTER TABLE tests
+-- ADD COLUMN pvalue        DOUBLE DEFAULT NULL AFTER battery_id;
+
 CREATE TABLE IF NOT EXISTS batteries (
     id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
     name                VARCHAR(255) NOT NULL,
@@ -58,6 +64,7 @@ CREATE TABLE IF NOT EXISTS batteries (
     alpha               DOUBLE NOT NULL,
     experiment_id       BIGINT UNSIGNED NOT NULL,
     job_id              BIGINT UNSIGNED DEFAULT NULL,
+    pvalue              DOUBLE DEFAULT NULL,
     FOREIGN KEY (experiment_id) REFERENCES experiments(id) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = INNODB;
@@ -83,6 +90,7 @@ CREATE TABLE IF NOT EXISTS tests (
     result              ENUM('passed', 'failed') NOT NULL,
     test_index          INT UNSIGNED NOT NULL,
     battery_id          BIGINT UNSIGNED NOT NULL,
+    pvalue              DOUBLE DEFAULT NULL,
     FOREIGN KEY (battery_id) REFERENCES batteries(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = INNODB;
 
