@@ -45,7 +45,10 @@ battery_flags = {'nist_sts':             1,
                  'tu01_bigcrush':        16,
                  'tu01_rabbit':          32,
                  'tu01_alphabit':        64,
-                 'tu01_blockalphabit':   128}
+                 'tu01_blockalphabit':   128,
+                 'booltest_1':           256,
+                 'booltest_2':           512,
+                 }
 
 storage_data_dir = ""
 storage_config_dir = ""
@@ -93,6 +96,10 @@ def parse_arguments():
                         help="switch inclusion of TestU01 Alphabit battery")
     parser.add_argument("--tu01_blockalphabit", action="store_true",
                         help="switch inclusion of TestU01 Block Alphabit battery")
+    parser.add_argument("--booltest-1", dest='booltest1', action="store_true",
+                        help="switch inclusion of BoolTest1 battery")
+    parser.add_argument("--booltest-2", dest='booltest2', action="store_true",
+                        help="switch inclusion of BoolTest2 battery")
     return parser.parse_args()
 
 
@@ -117,6 +124,10 @@ def pick_batteries(args):
         picked_batts ^= battery_flags['tu01_alphabit']
     if args.tu01_blockalphabit:
         picked_batts ^= battery_flags['tu01_blockalphabit']
+    if args.booltest1:
+        picked_batts ^= battery_flags['booltest_1']
+    if args.booltest2:
+        picked_batts ^= battery_flags['booltest_2']
     return picked_batts
 
 
