@@ -367,6 +367,10 @@ def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=Non
 
 
 def get_booltest_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=None, exp_dir=None):
+    if not booltest_rtt_binary:
+        logger.error("BoolTest RTT wraper not found")
+        return None
+
     args = "{} -b {} -c {} -f {} --eid {} --jid {}" \
         .format(booltest_rtt_binary,
                 job_info.battery,
@@ -403,7 +407,7 @@ def experiment_finished(exp_id, connection):
         sys.exit(1)
 
     for row in cursor.fetchall():
-        if row[0] != 'finished':
+        if row[0] != 'finished' or row[0] != 'error':
             return False
 
     return True
@@ -485,11 +489,11 @@ def try_finalize_experiments(connection):
         rand_sleep()
 
 
-def try_upd_job_finished(cursor, job_info):
-    sql_upd_job_finished = """UPDATE jobs SET run_finished=NOW(), status='finished' WHERE id=%s"""
+def try_upd_job_finished(cursor, job_info, state='finished'):
+    sql_upd_job_finished = """UPDATE jobs SET run_finished=NOW(), status=%s WHERE id=%s"""
     for idx in range(15):
         try:
-            cursor.execute(sql_upd_job_finished, (job_info.id,))
+            cursor.execute(sql_upd_job_finished, (state, job_info.id,))
             return
         except Exception as e:
             logger.error("Exception in try_upd_job_finished: %s" % (e,), e)
@@ -1012,6 +1016,10 @@ def main():
                 rtt_args = get_booltest_rtt_arguments(job_info, rtt_config=rtt_settings,
                                                       mysql_host=mysql_params.host, mysql_port=mysql_params.port,
                                                       exp_dir=worker_exp_dir)
+                if not rtt_args:
+                    rand_sleep()
+                    continue
+
                 logger.info("CMD: {}".format(rtt_args))
                 async_runner = rtt_worker.get_booltest_rtt_runner(shlex.split(rtt_args))
 
