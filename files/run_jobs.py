@@ -27,6 +27,7 @@ import random
 import hashlib
 import itertools
 import binascii
+import subprocess
 from common.clilogging import *
 from common.rtt_db_conn import *
 from common.rtt_sftp_conn import *
@@ -61,6 +62,7 @@ cache_config_dir = ""
 storage_data_dir = ""
 storage_config_dir = ""
 rtt_binary = ""
+booltest_rtt_binary = ""
 sender_email = ""
 backend_data = BackendData()
 max_sec_per_test = 4000
@@ -361,6 +363,24 @@ def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=Non
         args += ' --db-port %s' % mysql_port
     if exp_dir:
         args += ' --rpath "%s"' % exp_dir
+    return args
+
+
+def get_booltest_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=None, exp_dir=None):
+    args = "{} -b {} -c {} -f {} --eid {} --jid {}" \
+        .format(booltest_rtt_binary,
+                job_info.battery,
+                get_config_path(cache_config_dir, job_info.experiment_id),
+                get_data_path(cache_data_dir, job_info.experiment_id),
+                job_info.experiment_id,
+                job_info.id)
+
+    if rtt_config:
+        args += ' -s %s' % rtt_config
+    if mysql_host:
+        args += ' --db-host %s' % mysql_host
+    if mysql_port:
+        args += ' --db-port %s' % mysql_port
     return args
 
 
@@ -685,6 +705,7 @@ def main():
     global storage_data_dir
     global storage_config_dir
     global rtt_binary
+    global booltest_rtt_binary
     global sender_email
     global backend_data
     global max_sec_per_test
@@ -760,6 +781,7 @@ def main():
         storage_config_dir = main_cfg.get('Storage', 'Config-directory')
         sender_email = main_cfg.get('Backend', 'Sender-email')
         rtt_binary = main_cfg.get('RTT-Binary', 'Binary-path')
+        booltest_rtt_binary = main_cfg.get('RTT-Binary', 'booltest-rtt-path')
         rtt_root_dir = get_rtt_root_dir(cache_config_dir)
         rtt_log_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.EXEC_LOGS_TOP_DIR)
         rtt_work_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.RTT_EXECUTION_DIR, 'workers')
@@ -773,6 +795,12 @@ def main():
         if args.id_rand:
             backend_data.id = hashlib.md5(backend_data.name.encode('utf8')).hexdigest()
             logger.info("Generated worker ID: %s" % backend_data.id)
+
+        if not booltest_rtt_binary:
+            try:
+                booltest_rtt_binary = subprocess.check_output(['which', 'booltest_rtt'])
+            except Exception as e:
+                pass
 
     except BaseException as e:
         print_error("Configuration file: {}".format(e))
@@ -970,8 +998,6 @@ def main():
 
             logger.info("Job fetched, ID: %s, expId: %s" % (job_info.id, job_info.experiment_id))
             fetch_data(job_info.experiment_id, sftp)
-            rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host, mysql_port=mysql_params.port,
-                                         exp_dir=worker_exp_dir)
             data_file_path = get_data_path(cache_data_dir, job_info.experiment_id)
             data_hash_preexec = try_hash_file(data_file_path)
 
@@ -979,10 +1005,21 @@ def main():
                         .format(job_info.id, job_info.experiment_id,
                                 data_file_path, binascii.hexlify(data_hash_preexec)))
 
-            logger.info("CMD: {}".format(rtt_args))
-
+            async_runner = None
             time_job_start = time.time()
-            async_runner = rtt_worker.get_rtt_runner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary))
+            if 'booltest' in job_info.battery.lower():
+                rtt_settings = os.path.join(worker_base_dir, rtt_constants.Backend.RTT_SETTINGS_JSON)
+                rtt_args = get_booltest_rtt_arguments(job_info, rtt_config=rtt_settings,
+                                                      mysql_host=mysql_params.host, mysql_port=mysql_params.port,
+                                                      exp_dir=worker_exp_dir)
+                logger.info("CMD: {}".format(rtt_args))
+                async_runner = rtt_worker.get_booltest_rtt_runner(shlex.split(rtt_args))
+
+            else:
+                rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host,
+                                             mysql_port=mysql_params.port, exp_dir=worker_exp_dir)
+                logger.info("CMD: {}".format(rtt_args))
+                async_runner = rtt_worker.get_rtt_runner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary))
 
             logger.info("Starting async command")
             last_heartbeat = time_job_start - 5

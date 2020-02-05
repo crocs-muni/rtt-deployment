@@ -14,6 +14,9 @@ pyinstaller -F submit_experiment.py
 mv dist/submit_experiment .
 chgrp rtt_admin submit_experiment
 chmod g+s submit_experiment
+cp submit_experiment /home/RTTWebInterface/submit_experiment_script/submit_experiment
+chgrp rtt_admin /home/RTTWebInterface/submit_experiment_script/submit_experiment
+chmod g+s /home/RTTWebInterface/submit_experiment_script/submit_experiment
 """
 
 import configparser
