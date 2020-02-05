@@ -199,6 +199,7 @@ def main():
 
         install_python_pkg("pyinstaller")
         install_python_pkg("mysqlclient")
+        install_python_pkg("filelock")
         install_python_pkg("jsonpath-ng")
         install_python_pkg("booltest")
         install_python_pkg("booltest-rtt")

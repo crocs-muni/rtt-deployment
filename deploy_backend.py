@@ -3,6 +3,7 @@
 import configparser
 import json
 import shutil
+import subprocess
 from os.path import join
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
@@ -278,6 +279,35 @@ def main():
                 "execution": {
                     "max-parallel-tests": int(Backend.exec_max_tests),
                     "test-timeout-seconds": int(Backend.exec_test_timeout)
+                },
+                "booltest": {
+                    "default-cli": "--no-summary --json-out --log-prints --top 128 --no-comb-and --only-top-comb --only-top-deg --no-term-map --topterm-heap --topterm-heap-k 256 --best-x-combs 512",
+                    "strategies": [
+                        {
+                            "name": "v1",
+                            "cli": "",
+                            "variations": [
+                                {
+                                    "bl": [128, 256, 384, 512],
+                                    "deg": [1, 2, 3],
+                                    "cdeg": [1, 2, 3],
+                                    "exclusions": []
+                                }
+                            ]
+                        },
+                        {
+                            "name": "halving",
+                            "cli": "--halving",
+                            "variations": [
+                                {
+                                    "bl": [128, 256, 384, 512],
+                                    "deg": [1, 2, 3],
+                                    "cdeg": [1, 2, 3],
+                                    "exclusions": []
+                                }
+                            ]
+                        }
+                    ]
                 }
             }
         }
@@ -325,6 +355,13 @@ def main():
         backend_ini_cfg.add_section("RTT-Binary")
         backend_ini_cfg.set("RTT-Binary", "Binary-path",
                             Backend.rtt_binary_path)
+        try:
+            booltest_rtt_binary = subprocess.check_output(['which', 'booltest_rtt'])
+        except Exception as e:
+            booltest_rtt_binary = ""
+
+        backend_ini_cfg.set("RTT-Binary", "booltest-rtt-path",
+                            booltest_rtt_binary)  # TODO: auto-detect
         with open(Backend.config_ini_path, "w") as f:
             backend_ini_cfg.write(f)
 
