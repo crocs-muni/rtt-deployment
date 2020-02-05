@@ -200,6 +200,8 @@ def main():
         install_python_pkg("pyinstaller")
         install_python_pkg("mysqlclient")
         install_python_pkg("jsonpath-ng")
+        install_python_pkg("booltest")
+        install_python_pkg("booltest-rtt")
 
         os.chdir(Frontend.CHROOT_RTT_FILES)
         exec_sys_call_check("pyinstaller -F {}".format(Frontend.SUBMIT_EXPERIMENT_SCRIPT))

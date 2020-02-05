@@ -169,6 +169,8 @@ def main():
         install_python_pkg("coloredlogs")
         install_python_pkg("filelock")
         install_python_pkg("sshtunnel")
+        install_python_pkg("booltest")
+        install_python_pkg("booltest-rtt")
 
         # Get current versions of needed tools from git
         # Statistical batteries
