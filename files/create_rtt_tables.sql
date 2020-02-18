@@ -122,6 +122,15 @@ CREATE TABLE IF NOT EXISTS variant_stderr (
     FOREIGN KEY (variant_id) REFERENCES variants(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = INNODB;
 
+CREATE TABLE `variant_results` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `message` text NOT NULL,
+  `variant_id` bigint(20) unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `variant_results_variants_id` (`variant_id`),
+  CONSTRAINT `variant_results_variants_id` FOREIGN KEY (`variant_id`) REFERENCES `variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS user_settings (
     id                  BIGINT UNSIGNED PRIMARY KEY NOT NULL AUTO_INCREMENT,
     name                VARCHAR(100) NOT NULL,
