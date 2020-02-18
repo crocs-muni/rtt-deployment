@@ -407,7 +407,7 @@ def experiment_finished(exp_id, connection):
         sys.exit(1)
 
     for row in cursor.fetchall():
-        if row[0] != 'finished' or row[0] != 'error':
+        if row[0] != 'finished' and row[0] != 'error':
             return False
 
     return True
