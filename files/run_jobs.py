@@ -483,6 +483,7 @@ def try_finalize_experiments(connection):
             if efinished:
                 logger.info("Finishing experiment %s" % eid)
                 cursor.execute(sql_upd_experiment_finished, (eid,))
+        connection.commit()
 
     except Exception as e:
         logger.error("Exception in finalizing experiments: %s" % (e,), e)
