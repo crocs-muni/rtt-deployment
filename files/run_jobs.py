@@ -1011,6 +1011,7 @@ def main():
                                 data_file_path, binascii.hexlify(data_hash_preexec)))
 
             async_runner = None
+            is_booltest = False
             time_job_start = time.time()
             if 'booltest' in job_info.battery.lower():
                 rtt_settings = os.path.join(worker_base_dir, rtt_constants.Backend.RTT_SETTINGS_JSON)
@@ -1023,6 +1024,7 @@ def main():
 
                 logger.info("CMD: {}".format(rtt_args))
                 async_runner = rtt_worker.get_booltest_rtt_runner(shlex.split(rtt_args))
+                is_booltest = True
 
             else:
                 rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host,
@@ -1044,7 +1046,8 @@ def main():
                     job_heartbeat(db, job_info)
                     last_heartbeat = time.time()
 
-                if time.time() - time_job_start > max_sec_per_test:
+                cjob_time_limit = 2.2 * max_sec_per_test if is_booltest else max_sec_per_test
+                if time.time() - time_job_start > cjob_time_limit:
                     logger.error("Current test takes too long, either reconfigure the param or fix the test. Terminating...")
                     test_failed = True
                     async_runner.shutdown()
