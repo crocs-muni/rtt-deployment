@@ -13,15 +13,23 @@ import sys
 logger = logging.getLogger(__name__)
 JOB_TEMPLATE = """#!/bin/bash
 
-export HMDIR="/storage/brno3-cerit/home/ph4r05"
+# set a handler to clean the SCRATCHDIR once finished
+trap "clean_scratch" TERM EXIT
+
+export HMDIR="{{{STORAGE_ROOT}}}"
 export BASEDR="$HMDIR/rtt_worker"
 cd "${BASEDR}"
+
+mkdir -p `dirname LOG_ERR` 2>/dev/null
+mkdir -p `dirname LOG_OUT` 2>/dev/null
 
 set -o pipefail
 . $HMDIR/pyenv-brno3.sh
 pyenv local 3.7.1
 
-exec stdbuf -eL python ./run_jobs.py $BASEDR/backend.ini \\
+export RTT_PARALLEL={{{RTT_PARALLEL}}}
+exec stdbuf -eL $HMDIR/.pyenv/versions/3.7.1/bin/python \\
+  ./run_jobs.py $BASEDR/backend.ini \\
   --forwarded-mysql 1 \\
   --deactivate 1 \\
   --name {{{NAME}}} \\
@@ -31,7 +39,13 @@ exec stdbuf -eL python ./run_jobs.py $BASEDR/backend.ini \\
   --all-time 1 \\
   --run-time {{{RUN_TIME}}} \\
   --job-time {{{JOB_TIME}}} \\
+  --pbspro \\
   2> {{{LOG_ERR}}} > {{{LOG_OUT}}}
+  
+# Copy logs back to FS
+[[ -n "${SCRATCHDIR}" ]] && cp {{{LOG_ERR}}} {{{PERM_LOG_ERR}}}
+[[ -n "${SCRATCHDIR}" ]] && cp {{{LOG_OUT}}} {{{PERM_LOG_OUT}}}
+
 """
 
 """
@@ -40,6 +54,7 @@ exec stdbuf -eL python ./run_jobs.py $BASEDR/backend.ini \\
   x
 """
 
+
 class JobGenerator:
     def __init__(self):
         self.args = None
@@ -47,6 +62,18 @@ class JobGenerator:
     def work(self):
         if not self.args.job_dir:
             raise ValueError('Empty job dir')
+
+        user = self.args.user
+        if not user:
+            user = os.getenv('PBS_O_LOGNAME', None)
+        if not user:
+            user = os.getenv('USER', None)
+        if not user:
+            raise ValueError('Could not determine user')
+
+        storage_path = self.args.storage_full
+        if not storage_path:
+            storage_path = '/storage/%s/home/%s' % (self.args.storage, user)
 
         os.makedirs(self.args.job_dir, exist_ok=True)
 
@@ -62,16 +89,23 @@ class JobGenerator:
             worker_id = hashlib.md5(workid_base.encode()).hexdigest()
             worker_name = 'meta:%s:%04d:%s' % (batch_id, idx, worker_id[:8])
             worker_file_base = '%s-%s' % (workid_base, worker_id[:8])
+            perm_log_err = os.path.abspath(os.path.join(log_dir, 'loge-%s.log' % worker_file_base))
+            perm_log_out = os.path.abspath(os.path.join(log_dir, 'logo-%s.log' % worker_file_base))
+            log_err = os.path.join('${SCRATCHDIR}', 'loge-%s.log' % worker_file_base) if self.args.scratch else perm_log_err
+            log_out = os.path.join('${SCRATCHDIR}', 'logo-%s.log' % worker_file_base) if self.args.scratch else perm_log_out
 
             job_data = JOB_TEMPLATE
+            job_data = job_data.replace('{{{STORAGE_ROOT}}}', storage_path)
             job_data = job_data.replace('{{{NAME}}}', worker_name)
             job_data = job_data.replace('{{{ID}}}', worker_id)
             job_data = job_data.replace('{{{RUN_TIME}}}', '%s' % (60*60*self.args.hr_job - 60*5))
             job_data = job_data.replace('{{{JOB_TIME}}}', '%s' % self.args.test_time)
-            job_data = job_data.replace('{{{LOG_ERR}}}',
-                                        os.path.abspath(os.path.join(log_dir, 'log2-%s.log' % worker_file_base)))
-            job_data = job_data.replace('{{{LOG_OUT}}}',
-                                        os.path.abspath(os.path.join(log_dir, 'log1-%s.log' % worker_file_base)))
+            job_data = job_data.replace('{{{PERM_LOG_ERR}}}', perm_log_err)
+            job_data = job_data.replace('{{{PERM_LOG_OUT}}}', perm_log_out)
+            job_data = job_data.replace('{{{LOG_ERR}}}', log_err)
+            job_data = job_data.replace('{{{LOG_OUT}}}', log_out)
+            job_data = job_data.replace('{{{RTT_PARALLEL}}}', self.args.qsub_ncpu - 1)
+
             if '{{{' in job_data:
                 raise ValueError('Missed placeholder')
 
@@ -90,6 +124,8 @@ class JobGenerator:
                 qsub_args.append('brno=True')
             if self.args.cluster:
                 qsub_args.append('cl_%s=True' % self.args.cluster)
+            if self.args.scratch:
+                qsub_args.append('scratch_local=500mb')
 
             walltime = '%02d:00:00' % self.args.hr_job
             nprocs = self.args.qsub_ncpu
@@ -134,7 +170,7 @@ class JobGenerator:
         parser.add_argument('--qsub-ncpu', dest='qsub_ncpu', default=2, type=int,
                             help='qsub:  Number of processors to allocate for a job')
 
-        parser.add_argument('--qsub-ram', dest='qsub_ram', default=4, type=int,
+        parser.add_argument('--qsub-ram', dest='qsub_ram', default=4, type=float,
                             help='qsub:  RAM to allocate in GB')
 
         parser.add_argument('--test-time', dest='test_time', default=60*60, type=int,
@@ -145,6 +181,18 @@ class JobGenerator:
 
         parser.add_argument('--num', dest='num', default=1, type=int,
                             help='Number of jobs to generate')
+
+        parser.add_argument('--scratch', dest='scratch', default=1, type=int,
+                            help='Disable scratch by setting to 0')
+
+        parser.add_argument('--user', dest='user', default=None,
+                            help='User running under, overrides system default')
+
+        parser.add_argument('--storage', dest='storage', default='brno3-cerit',
+                            help='Cluster with the storage')
+
+        parser.add_argument('--storage-full', dest='storage_full',
+                            help='Full path to the storage root')
 
         parser.add_argument('--enqueue', dest='enqueue', action='store_const', const=True, default=False,
                             help='Enqueues the generated batch via qsub after job finishes')

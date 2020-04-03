@@ -519,11 +519,12 @@ def pathfix(inp):
     return inp
 
 
-def create_worker_exp_dir(worker_base_dir, backend_data: BackendData):
+def create_worker_exp_dir(worker_base_dir, backend_data: BackendData, scratch_dir=None):
+    scratch_dir = scratch_dir if scratch_dir else worker_base_dir
     wname = pathfix(backend_data.name or "")
     waddr = pathfix(backend_data.address or "")
     wid = pathfix(backend_data.id[:8] or "")
-    exp_dir = os.path.join(worker_base_dir, 'workers', '%s-%s-%s' % (waddr, wname, wid))
+    exp_dir = os.path.join(scratch_dir, 'workers', '%s-%s-%s' % (waddr, wname, wid))
     rtt_worker.create_experiments_dir(exp_dir)
     rtt_worker.copy_templates_dir(worker_base_dir, exp_dir)
     return exp_dir
@@ -654,7 +655,7 @@ def pack_log_dir(worker_exp_dir, exp_log_dir, job_info, backend_data):
 
     exp_dir = worker_exp_dir.rstrip('/')
     exp_parent, exp_dname = os.path.split(exp_dir)
-    args = 'tar -czvf %s.tar.gz %s' % (arch_base, exp_dname)
+    args = 'tar -czvf %s.tar.gz --exclude \'templates/*\' %s' % (arch_base, exp_dname)
 
     async_runner = rtt_worker.AsyncRunner(args, cwd=exp_parent, shell=True)
     async_runner.log_out_after = False
@@ -682,6 +683,21 @@ def try_hash_file(fname):
     except Exception as e:
         logger.error("Exception in hashing file %s: %s" % (fname, e))
         return b""
+
+
+def scratch_dir_get(fallback, pbspro=False):
+    if not pbspro:
+        return fallback
+    scratch = os.getenv('SCRATCHDIR')
+
+    if not scratch:
+        logger.warning('SCRATCHDIR dir not set')
+        return fallback
+
+    if not os.path.exists(scratch):
+        logger.warning('SCRATCHDIR dir does not exist: %s' % (scratch, ))
+        return fallback
+    return scratch
 
 
 #################
@@ -735,6 +751,8 @@ def main():
                         help='Cleanup only')
     parser.add_argument('--clean-jobs', dest='clean_jobs', default=None, type=int,
                         help='Cleanup jobs stucked in running state')
+    parser.add_argument('--pbspro', dest='pbspro', action='store_const', const=True, default=False,
+                        help='Enables PBSpro features, such as scratch space usage')
     parser.add_argument('config', default=None,
                         help='Config file')
     args = parser.parse_args()
@@ -884,8 +902,9 @@ def main():
             reset_jobs(db)
             raise SystemExit()
 
-        logger.info("Creating worker scratch dir")
-        worker_exp_dir = create_worker_exp_dir(worker_base_dir, backend_data)
+        scratch_dir = scratch_dir_get(worker_base_dir, args.pbspro)
+        logger.info("Creating worker scratch dir under: %s" % (scratch_dir, ))
+        worker_exp_dir = create_worker_exp_dir(worker_base_dir, backend_data, scratch_dir)
         worker_exp_dir = os.path.abspath(worker_exp_dir)
         logger.info("Worker scratch dir: %s" % worker_exp_dir)
 
