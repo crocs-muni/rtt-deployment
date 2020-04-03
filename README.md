@@ -145,3 +145,17 @@ for HOST in rtt2w1 rtt2w2 rtt2w3 rtt2w4 rtt2w5; do
     ssh $HOST 'sudo chown -R root:rtt_admin /rtt_backend/common; sudo chown -R root:rtt_admin /rtt_backend/run_jobs.py; sudo chmod +x /rtt_backend/run_jobs.py; sudo chown -R root:rtt_admin /rtt_backend/clean_cache_backend.py; sudo chmod +x /rtt_backend/clean_cache_backend.py; '
 done
 ```
+
+### BoolTest runner:
+
+```bash
+pip3 install booltest_rtt
+```
+
+Update `backend.ini`:
+
+```ini
+[RTT-Binary]
+binary-path = /home/user/rtt_worker/rtt_execution/randomness-testing-toolkit
+booltest-rtt-path = /home/user/.pyenv/versions/3.7.1/bin/booltest_rtt
+```
