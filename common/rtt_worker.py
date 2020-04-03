@@ -48,7 +48,7 @@ def experiment_battery_to_job(bat):
 
 def try_fnc(fnc):
     try:
-        fnc()
+        return fnc()
     except:
         pass
 
