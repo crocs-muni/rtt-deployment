@@ -134,3 +134,14 @@ rsync -av --progress ~/workspace/rtt-deployment-openshift/common/ $HOST:$RTT_ROO
 && ssh $HOST "chmod +x $RTT_ROOT/run_jobs.py; chmod +x $RTT_ROOT/clean_cache_backend.py;"
 ```
 
+Sync scripts on all workers:
+
+```bash
+for HOST in rtt2w1 rtt2w2 rtt2w3 rtt2w4 rtt2w5; do 
+    echo "=============================Syncing ${HOST}"
+    rsync -av  --rsync-path="sudo rsync" --progress ~/workspace/rtt-deployment-openshift/common/ $HOST:/rtt_backend/common/
+    rsync -av --rsync-path="sudo rsync" --progress ~/workspace/rtt-deployment-openshift/files/run_jobs.py $HOST:/rtt_backend/
+    rsync -av --rsync-path="sudo rsync" --progress ~/workspace/rtt-deployment-openshift/files/clean_cache.py  $HOST:/rtt_backend/clean_cache_backend.py
+    ssh $HOST 'sudo chown -R root:rtt_admin /rtt_backend/common; sudo chown -R root:rtt_admin /rtt_backend/run_jobs.py; sudo chmod +x /rtt_backend/run_jobs.py; sudo chown -R root:rtt_admin /rtt_backend/clean_cache_backend.py; sudo chmod +x /rtt_backend/clean_cache_backend.py; '
+done
+```
