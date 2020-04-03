@@ -23,7 +23,7 @@ def try_remove(path):
 
 def try_fnc(fnc):
     try:
-        fnc()
+        return fnc()
     except:
         pass
 
@@ -34,7 +34,7 @@ def try_remove_rf(start):
     return try_remove(lambda: shutil.rmtree(start, True))
 
 
-def clean_log_files(log_root_dir, expire_seconds=EXPIRE_SECONDS_DEFAULT):
+def clean_log_files(log_root_dir, expire_seconds=EXPIRE_SECONDS_DEFAULT, filter_fnc=None):
     cur_time = time.time()
     num_removed = 0
     size_removed = 0
@@ -46,6 +46,9 @@ def clean_log_files(log_root_dir, expire_seconds=EXPIRE_SECONDS_DEFAULT):
                 continue
 
             try:
+                if filter_fnc is not None and not filter_fnc(full_path):
+                    continue
+
                 stat = os.stat(full_path)
                 mtime = stat.st_mtime
                 tdiff = cur_time - mtime
@@ -59,6 +62,26 @@ def clean_log_files(log_root_dir, expire_seconds=EXPIRE_SECONDS_DEFAULT):
                 logger.warning('Exception when analyzing %s' % full_path, e)
 
     return num_removed, size_removed
+
+
+def try_clean_logs(log_dir):
+    try:
+        logger.info("Cleaning the log dir %s" % log_dir)
+        res = clean_log_files(log_dir)
+        logger.info("Log dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
+
+    except Exception as e:
+        logger.error("Log dir cleanup exception", e)
+
+
+def try_clean_workers(workers):
+    try:
+        logger.info("Cleaning the worker dir %s" % workers)
+        res = clean_log_files(workers, filter_fnc=lambda x: '/templates/' not in x)
+        logger.info("Worker dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
+
+    except Exception as e:
+        logger.error("Worker dir cleanup exception", e)
 
 
 def get_associated_files(path):

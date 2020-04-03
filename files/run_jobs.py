@@ -426,24 +426,7 @@ def try_clean_cache(config, mysql_params=None):
 
 
 def try_clean_logs(log_dir):
-    try:
-        logger.info("Cleaning the log dir %s" % log_dir)
-        res = rtt_utils.clean_log_files(log_dir)
-        logger.info("Log dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1]/1024/1024))
-
-    except Exception as e:
-        logger.error("Log dir cleanup exception", e)
-        rand_sleep()
-
-
-def try_clean_workers(workers):
-    try:
-        logger.info("Cleaning the worker dir %s" % workers)
-        res = rtt_utils.clean_log_files(workers)
-        logger.info("Worker dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
-
-    except Exception as e:
-        logger.error("Worker dir cleanup exception", e)
+    rtt_utils.try_clean_logs(log_dir)
 
 
 def purge_unfinished_job(cursor, job_id, eid, battery):
@@ -1090,7 +1073,7 @@ def main():
         if args.clean_logs or args.cleanup_only:
             try_clean_logs(rtt_log_dir)
         if args.clean_logs or args.cleanup_only:
-            try_clean_workers(rtt_work_dir)
+            rtt_utils.try_clean_workers(rtt_work_dir)
         if mysql_forwarder:
             mysql_forwarder.shutdown()
         rtt_utils.try_remove_rf(worker_exp_dir)

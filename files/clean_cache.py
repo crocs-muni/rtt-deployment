@@ -54,26 +54,6 @@ def delete_cache_files(exp_id):
         print_info("File was already removed: {}".format(cache_config_file))
 
 
-def try_clean_logs(log_dir):
-    try:
-        logger.info("Cleaning the log dir %s" % log_dir)
-        res = rtt_utils.clean_log_files(log_dir)
-        logger.info("Log dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
-
-    except Exception as e:
-        logger.error("Log dir cleanup exception", e)
-
-
-def try_clean_workers(workers):
-    try:
-        logger.info("Cleaning the worker dir %s" % workers)
-        res = rtt_utils.clean_log_files(workers)
-        logger.info("Worker dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
-
-    except Exception as e:
-        logger.error("Worker dir cleanup exception", e)
-
-
 def get_rtt_root_dir(config_dir):
     config_els = config_dir.split(os.sep)
     base_els = rtt_constants.Backend.CACHE_CONFIG_DIR.split(os.sep)
@@ -132,8 +112,8 @@ def clean_caches(main_cfg_file, mysql_params=None):
         cursor.close()
         db.close()
 
-    try_clean_logs(rtt_log_dir)
-    try_clean_workers(rtt_work_dir)
+    rtt_utils.try_clean_logs(rtt_log_dir)
+    rtt_utils.try_clean_workers(rtt_work_dir)
 
 
 #################
