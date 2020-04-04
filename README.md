@@ -1,4 +1,6 @@
-RTT
+# RTT
+
+Randomness testing toolkit runner and deployment scripts.
 
 ## Build chapters
 
@@ -124,7 +126,7 @@ cd /storage/brno3-cerit/home/ph4r05/rtt_worker
 . pyenv-brno3.sh
 python ./run_jobs.py /storage/brno6/home/ph4r05/rtt_worker/backend.ini --forwarded-mysql 1 --clean-cache 1 --clean-logs 1 --deactivate 1 --name 'meta:tester' --id 'meta:tester' --location 'metacentrum' --longterm 0
 
-# JobGen
+# JobGen @ metacentrum
 python metacentrum.py --job-dir ../rtt-jobs --test-time $((4*60*60)) --hr-job 4 --num 100 --qsub-ncpu 4 --qsub-ram 8 --scratch-size 8500 
 
 # Job deactivate
@@ -211,4 +213,28 @@ Configuration in `rtt-settings.json`:
         ]
     }
 }
+```
+
+
+### Metacentrum - prepare worker skeleton
+
+```
+export DEPLOY_PATH="/path/from/deployment_settings.ini"
+# export DEPLOY_PATH="/storage/brno3-cerit/home/ph4r05/rtt_worker"
+
+export DEPLOYMENT_REPO_PATH="/path/to/this/repository"
+mkdir -p /tmp/rtt/result
+DOCKER_ID=$(docker run -idt \
+    -v "/tmp/rtt/result":"/result" \
+    -v "$DEPLOYMENT_REPO_PATH":"/rtt-deployment" \
+    -w "/rtt-deployment" --cap-add SYS_PTRACE --cap-add sys_admin \
+    --security-opt seccomp:unconfined --network=host debian:9)
+
+docker exec $DOCKER_ID apt-get update -qq 2>/dev/null >/dev/null
+docker exec $DOCKER_ID apt-get install python3-pip -qq --yes 
+docker exec $DOCKER_ID python3 deploy_backend.py metacentrum --metacentrum --no-db-reg --no-ssh-reg
+docker exec $DOCKER_ID rsync -av $DEPLOY_PATH/ /result/
+
+# To get shell:
+docker exec -it $DOCKER_ID /bin/bash
 ```

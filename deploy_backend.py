@@ -29,10 +29,14 @@ def main():
                         help='Skip MySQL user registration')
     parser.add_argument('--no-ssh-reg', dest='no_ssh_reg', action='store_const', const=True, default=False,
                         help='Skip SSH key registration at storage server')
+    parser.add_argument('--ph4-rtt', dest='ph4_rtt', action='store_const', const=True, default=False,
+                        help='Use Ph4r05 fork of RTT - required for metacentrum')
     parser.add_argument('backend_id', default=None,
                         help='Config file')
     args = parser.parse_args()
     wbare = not args.metacentrum
+    if args.metacentrum:
+        args.ph4_rtt = True
 
     # Get path to main config from console
     if not args.backend_id:
@@ -94,6 +98,9 @@ def main():
         print_error("Invalid configuration. {}".format(e))
         sys.exit(1)
 
+    if not wbare:
+        os.makedirs(Backend.rtt_files_dir, 0o771, True)
+
     # Defined absolute paths to directories and files
     Backend.rand_test_tool_src_dir = \
         join(Backend.rtt_files_dir, Backend.RANDOMNESS_TESTING_TOOLKIT_SRC_DIR)
@@ -135,6 +142,7 @@ def main():
         join(Backend.credentials_dir, Backend.SSH_CREDENTIALS_FILE)
     Backend.config_ini_path = \
         join(Backend.rtt_files_dir, Backend.BACKEND_CONFIG_FILE)
+    wgrp = Backend.RTT_ADMIN_GROUP
 
     try:
         # Adding rtt-admin group that is intended to manage
@@ -146,12 +154,12 @@ def main():
             shutil.rmtree(Backend.rtt_files_dir)
 
         # Create and copy needed files into rtt-files
-        wgrp = Backend.RTT_ADMIN_GROUP
         create_dir(Backend.rtt_files_dir, 0o2770, grp=wgrp)
 
         # Set ACL on top directory - ensures all new files will have correct permissions
-        exec_sys_call_check("setfacl -R -d -m g::rwx {}".format(Backend.rtt_files_dir))
-        exec_sys_call_check("setfacl -R -d -m o::--- {}".format(Backend.rtt_files_dir))
+        if wbare:
+            exec_sys_call_check("setfacl -R -d -m g::rwx {}".format(Backend.rtt_files_dir))
+            exec_sys_call_check("setfacl -R -d -m o::--- {}".format(Backend.rtt_files_dir))
 
         create_dir(Backend.cache_conf_dir, 0o2770, grp=wgrp)
         create_dir(Backend.cache_data_dir, 0o2770, grp=wgrp)
@@ -171,8 +179,14 @@ def main():
         recursive_chmod_chown(Backend.common_files_dir, mod_f=0o660, mod_d=0o2770, grp=wgrp)
 
         # Install packages
+        install_debian_pkg("wget")
+        install_debian_pkg("rsync")
+        install_debian_pkg("unzip")
+        install_debian_pkg("git")
         install_debian_pkg("mailutils")
-        install_debian_pkg("postfix")
+        if wbare:
+            install_debian_pkg("postfix")
+
         install_debian_pkg("libmysqlcppconn-dev")
         install_debian_pkg_at_least_one(["default-libmysqlclient-dev", "libmysqlclient-dev"])
         install_debian_pkg("python3-pip")
@@ -206,13 +220,17 @@ def main():
         if os.path.exists(Backend.rand_test_tool_src_dir):
             shutil.rmtree(Backend.rand_test_tool_src_dir)
 
-        exec_sys_call_check("wget {} -O {}".format(Backend.RANDOMNESS_TESTING_TOOLKIT_ZIP_URL,
-                                                   Backend.rand_test_tool_dl_zip))
-        exec_sys_call_check("unzip {} -d {}".format(Backend.rand_test_tool_dl_zip,
-                                                    Backend.rtt_files_dir))
-        os.remove(Backend.rand_test_tool_dl_zip)
-        os.rename(join(Backend.rtt_files_dir, Backend.RANDOMNESS_TESTING_TOOLKIT_GIT_NAME),
-                  Backend.rand_test_tool_src_dir)
+        if args.ph4_rtt:
+            exec_sys_call_check("git clone --recursive https://github.com/ph4r05/randomness-testing-toolkit.git %s" % Backend.rand_test_tool_src_dir)
+
+        else:
+            exec_sys_call_check("wget {} -O {}".format(Backend.RANDOMNESS_TESTING_TOOLKIT_ZIP_URL,
+                                                       Backend.rand_test_tool_dl_zip))
+            exec_sys_call_check("unzip {} -d {}".format(Backend.rand_test_tool_dl_zip,
+                                                        Backend.rtt_files_dir))
+            os.remove(Backend.rand_test_tool_dl_zip)
+            os.rename(join(Backend.rtt_files_dir, Backend.RANDOMNESS_TESTING_TOOLKIT_GIT_NAME),
+                      Backend.rand_test_tool_src_dir)
 
         # Change into directory rtt-src and rtt-stat-batt-src and call make and ./INSTALL respectively.
         current_dir = os.path.abspath(os.path.curdir)
@@ -225,12 +243,18 @@ def main():
         chmod_chown(Backend.DIEHARDER_BINARY_PATH, 0o770)
         chmod_chown(Backend.NIST_STS_BINARY_PATH, 0o770)
         chmod_chown(Backend.TESTU01_BINARY_PATH, 0o770)
-        # TODO: static build for dieharder
+        if not wbare:
+            build_static_dieharder(Backend.stat_batt_src_dir)
+        os.chdir(Backend.stat_batt_src_dir)
 
         # Build randomness testing toolkit
         os.chdir(Backend.rand_test_tool_src_dir)
-        rtt_env = None if wbare else get_rtt_build_env(Backend.rand_test_tool_src_dir)
-        exec_sys_call_check("make", env=rtt_env)
+        rtt_env = None
+        if not wbare:
+            lib_data = copy_rtt_libs(Backend.rand_test_tool_src_dir)
+            rtt_env = get_rtt_build_env(Backend.rand_test_tool_src_dir, lib_data)
+
+        exec_sys_call_check("make -j2", env=rtt_env, acc_codes=[0, 1, 2])
         recursive_chmod_chown(Backend.rand_test_tool_src_dir, mod_f=0o660, mod_d=0o2770, grp=wgrp)
         chmod_chown(Backend.RTT_BINARY_PATH, 0o770)
 
@@ -404,6 +428,7 @@ def main():
         with open(Backend.mysql_cred_json_path, "w") as f:
             json.dump(cred_mysql_db_json, f, indent=4)
 
+        post_install_info = []
         if not args.no_db_reg:
             register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                              Backend.MYSQL_BACKEND_USER, db_pwd, Backend.address,
@@ -415,8 +440,8 @@ def main():
                                      reg_address=Backend.address, reg_pwd=db_pwd,
                                      priv_select=True, priv_insert=True, priv_update=True,
                                      db_host=Database.address, db_port=Database.ssh_port)
-            print('DB user not registered to the DB server. Make sure the following user:password has access: ')
-            print(sql)
+            post_install_info.append('DB user not registered to the DB server. Make sure the following user:password has access: ')
+            post_install_info.append(sql)
 
         # Register machine to storage
         key_pwd = args.ssh_passphrase if args.ssh_passphrase else get_rnd_pwd()
@@ -441,8 +466,8 @@ def main():
 
         authorized_keys_path = "{}{}".format(Storage.acc_chroot, join(Storage.CHROOT_HOME_DIR, Storage.SSH_DIR, Storage.AUTH_KEYS_FILE))
         if args.no_ssh_reg:
-            print('Register the following key on the storage server at %s' % (authorized_keys_path,))
-            print('%s' % (pub_key,))
+            post_install_info.append('Register the following key on the storage server at %s' % (authorized_keys_path,))
+            post_install_info.append('%s' % (pub_key,))
 
         else:
             add_authorized_key_to_server(Storage.ssh_root_user, Storage.address, Storage.ssh_port,
@@ -455,6 +480,11 @@ def main():
 
             add_cron_job(Backend.run_jobs_path, Backend.config_ini_path,
                          join(Backend.rtt_files_dir, Backend.RUN_JOBS_LOG))
+
+        if post_install_info:
+            print('='*80)
+            for x in post_install_info:
+                print(x)
 
     except BaseException as e:
         print_error("{}. Fix error and run the script again.".format(e))
