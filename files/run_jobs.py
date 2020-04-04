@@ -119,7 +119,7 @@ def reset_jobs(connection):
         logger.info("Jobs cleaned")
 
     except Exception as e:
-        logger.error("Exception in job cleaning: %s" % (e,))
+        logger.error("Exception in job cleaning: %s" % (e,), exc_info=e)
         raise
 
     finally:
@@ -267,7 +267,7 @@ def job_heartbeat(connection, job_info):
             connection.commit()
             return
         except Exception as e:
-            logger.error("Exception in heartbeat: %s, iter: %s" % (e, idx))
+            logger.error("Exception in heartbeat: %s, iter: %s" % (e, idx), exc_info=e)
             rand_sleep()
 
 
@@ -322,7 +322,7 @@ def refresh_backend_record(connection, backend_data: BackendData):
         return backend_data
 
     except Exception as e:
-        logger.error("Exception in worker rec refresh: %s" % (e,))
+        logger.error("Exception in worker rec refresh: %s" % (e,), exc_info=e)
         rand_sleep()
 
 
@@ -424,7 +424,7 @@ def try_clean_cache(config, mysql_params=None):
         logger.info("Cache cleaned up")
 
     except Exception as e:
-        logger.error("Cache cleanup exception", e)
+        logger.error("Cache cleanup exception: %s" % (e,), exc_info=e)
         rand_sleep()
 
 
@@ -450,7 +450,7 @@ def purge_unfinished_job(cursor, job_id, eid, battery):
             cursor.execute("DELETE FROM batteries WHERE id=%s", (bid,))
 
     except Exception as e:
-        logger.error("Exception in purge_unfinished_job: %s" % (e,), e)
+        logger.error("Exception in purge_unfinished_job: %s" % (e,), exc_info=e)
         rand_sleep()
 
 
@@ -472,7 +472,7 @@ def try_finalize_experiments(connection):
         connection.commit()
 
     except Exception as e:
-        logger.error("Exception in finalizing experiments: %s" % (e,), e)
+        logger.error("Exception in finalizing experiments: %s" % (e,), exc_info=e)
         rand_sleep()
 
 
@@ -483,7 +483,7 @@ def try_upd_job_finished(cursor, job_info, state='finished'):
             cursor.execute(sql_upd_job_finished, (state, job_info.id,))
             return
         except Exception as e:
-            logger.error("Exception in try_upd_job_finished: %s" % (e,), e)
+            logger.error("Exception in try_upd_job_finished: %s" % (e,), exc_info=e)
             rand_sleep()
     raise ValueError("Could not finish try_upd_job_finished")
 
@@ -495,7 +495,7 @@ def try_upd_experiment_finished(cursor, job_info):
             cursor.execute(sql_upd_experiment_finished, (job_info.experiment_id,))
             return
         except Exception as e:
-            logger.error("Exception in try_upd_experiment_finished: %s" % (e,), e)
+            logger.error("Exception in try_upd_experiment_finished: %s" % (e,), exc_info=e)
             rand_sleep()
     raise ValueError("Could not finish try_upd_experiment_finished")
 
@@ -508,7 +508,7 @@ def try_make_finalized(cursor, job_info, db):
             try_upd_experiment_finished(cursor, job_info)
             send_email_to_author(job_info.experiment_id, db)
         except Exception as e:
-            logger.error("Exception in try_make_finalized: %s" % (e,), e)
+            logger.error("Exception in try_make_finalized: %s" % (e,), exc_info=e)
             rand_sleep()
 
 
@@ -621,7 +621,7 @@ def load_rtt_settings(db):
         return settings
 
     except Exception as e:
-        logger.error("Exception in loading settings: %s" % (e,), e)
+        logger.error("Exception in loading settings: %s" % (e,), exc_info=e)
         rand_sleep()
 
 
@@ -648,7 +648,7 @@ def test_rtt_binary_compatibility():
                 return
 
         except Exception as e:
-            logger.error("Exception in RTT binary compatibility test %s" % (e,))
+            logger.error("Exception in RTT binary compatibility test %s" % (e,), exc_info=e)
 
     raise ValueError("RTT is not binary compatible with this system")
 
@@ -684,7 +684,7 @@ def try_hash_file(fname):
         return rtt_utils.hash_file(fname=fname)
 
     except Exception as e:
-        logger.error("Exception in hashing file %s: %s" % (fname, e))
+        logger.error("Exception in hashing file %s: %s" % (fname, e), exc_info=e)
         return b""
 
 
@@ -934,7 +934,7 @@ def main():
         # backend_data.address = requests.get('https://checkip.amazonaws.com', timeout=30).text.strip()
         backend_data.address = socket.gethostname()
     except Exception as e:
-        logger.error("IP fetch exception", e)
+        logger.error("IP fetch exception: %s" % (e,), exc_info=e)
 
     # Ensure the worker is stored in the database so we can reference it
     logger.info("Checking worker record")
@@ -1037,7 +1037,7 @@ def main():
                     time_last_cleanup = time.time()
 
                 except Exception as e:
-                    logger.error("Job reset exception: %s" % (e,))
+                    logger.error("Job reset exception: %s" % (e,), exc_info=e)
                     rand_sleep()
 
             # If we should spend all allocated time ignore the exit

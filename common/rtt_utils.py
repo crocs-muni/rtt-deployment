@@ -59,7 +59,7 @@ def clean_log_files(log_root_dir, expire_seconds=EXPIRE_SECONDS_DEFAULT, filter_
                     size_removed += stat.st_size
 
             except Exception as e:
-                logger.warning('Exception when analyzing %s' % full_path, e)
+                logger.warning('Exception when analyzing %s' % full_path, exc_info=e)
 
     return num_removed, size_removed
 
@@ -71,7 +71,7 @@ def try_clean_logs(log_dir):
         logger.info("Log dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
 
     except Exception as e:
-        logger.error("Log dir cleanup exception", e)
+        logger.error("Log dir cleanup exception: %s" % (e,), exc_info=e)
 
 
 def try_clean_workers(workers):
@@ -81,7 +81,7 @@ def try_clean_workers(workers):
         logger.info("Worker dir cleaned up, files: %s, size: %.2f MB" % (res[0], res[1] / 1024 / 1024))
 
     except Exception as e:
-        logger.error("Worker dir cleanup exception", e)
+        logger.error("Worker dir cleanup exception: %s" % (e,), exc_info=e)
 
 
 def get_associated_files(path):
@@ -111,7 +111,7 @@ class FileLocker(object):
                 except OSError:
                     pass
         except Exception as e:
-            logger.error('Error touch the file', e)
+            logger.error('Error touch the file: %s' % (e, ), exc_info=e)
 
     def mtime(self):
         try:
@@ -222,7 +222,7 @@ class FileLockLogFilter(logging.Filter):
             return 1
 
         except Exception as e:
-            logger.error("Exception in log filtering: %s" % (e,))
+            logger.error("Exception in log filtering: %s" % (e,), exc_info=e)
 
         return 1
 

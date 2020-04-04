@@ -113,7 +113,7 @@ class SftpDownloader(object):
 
                 except Exception as e:
                     self.first_zero_bytes_time = time.time()
-                    logger.error('Exc', e)
+                    logger.error('Exc: %s' % (e,), exc_info=e)
                     time.sleep(0.1)
 
         logger.info("Download process finished after %.2f sec, downloaded %s/%s, speed: %.2f MBps"
@@ -247,5 +247,5 @@ def create_sftp_storage_conn_params(params: SSHParams):
         sftp.get_channel().settimeout(60)
         return sftp
     except Exception as e:
-        logger.error("Sftp connection: %s" % (e,))
+        logger.error("Sftp connection: %s" % (e,), exc_info=e)
         raise

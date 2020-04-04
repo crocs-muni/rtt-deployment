@@ -77,7 +77,7 @@ class SargeLogFilter(logging.Filter):
             return 1
 
         except Exception as e:
-            logger.error("Exception in log filtering: %s" % (e,))
+            logger.error("Exception in log filtering: %s" % (e,), exc_info=e)
 
         return 1
 
@@ -162,7 +162,7 @@ class AsyncRunner:
             self.run_internal()
         except Exception as e:
             self.is_running = False
-            logger.error("Unexpected exception in runner: %s" % (e,))
+            logger.error("Unexpected exception in runner: %s" % (e,), exc_info=e)
         finally:
             self.was_running = True
 
@@ -350,7 +350,7 @@ class AsyncRunner:
 
         except Exception as e:
             self.is_running = False
-            logger.error("Exception in async runner: %s" % (e,))
+            logger.error("Exception in async runner: %s" % (e,), exc_info=e)
 
         finally:
             self.was_running = True
@@ -660,7 +660,7 @@ class SSHForwarderLinux(SSHForwarder):
                 time.sleep(2)
 
             except Exception as e:
-                logger.error("Exception when terminating running ssh %s" % (e,))
+                logger.error("Exception when terminating running ssh %s" % (e,), exc_info=e)
 
         logger.info("SSH runner shutdown")
         self.runner.shutdown()
@@ -723,5 +723,5 @@ def copy_templates_dir(basedir, target):
         return shutil.copytree(src, dst)
 
     except Exception as e:
-        logger.error("Exception in copying template dir: %s" % (e,))
+        logger.error("Exception in copying template dir: %s" % (e,), exc_info=e)
         raise
