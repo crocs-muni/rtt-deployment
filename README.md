@@ -108,7 +108,7 @@ cd /storage/brno3-cerit/home/ph4r05/rtt_worker
 python ./run_jobs.py /storage/brno6/home/ph4r05/rtt_worker/backend.ini --forwarded-mysql 1 --clean-cache 1 --clean-logs 1 --deactivate 1 --name 'meta:tester' --id 'meta:tester' --location 'metacentrum' --longterm 0
 
 # JobGen
-python metacentrum.py --job-dir ../rtt-jobs --test-time $((60*60)) --hr-job 4 --num 1000
+python metacentrum.py --job-dir ../rtt-jobs --test-time $((4*60*60)) --hr-job 4 --num 100 --qsub-ncpu 4 --qsub-ram 8 --scratch-size 8500 
 
 # Job deactivate
 /storage/brno3-cerit/home/ph4r05/booltest/assets/cancel-jobs.sh  12587081 12587180
