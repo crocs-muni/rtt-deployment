@@ -74,19 +74,10 @@ def get_ssh_connection(def_username, address, port):
             continue
 
 
-def register_db_user(server_acc, server_address, server_port,
-                     reg_name, reg_pwd, reg_address, db_def_user, db_name,
-                     priv_select=False, priv_insert=False,
-                     priv_update=False, priv_delete=False):
-
-    print("\n\nRegistering user {} to database server on {}:{}..."
-          .format(reg_name, server_address, server_port))
-
-    ssh = get_ssh_connection(server_acc, server_address, server_port)
-    if not ssh:
-        print_error("Couldn't connect to database server, exit.")
-        sys.exit(1)
-
+def get_db_reg_command(username, password, db_name, reg_name, reg_address, reg_pwd,
+                       priv_select=False, priv_insert=False,
+                       priv_update=False, priv_delete=False,
+                       db_host=None, db_port=None):
     reg_rights = ""
     if priv_select:
         reg_rights += "SELECT,"
@@ -100,6 +91,31 @@ def register_db_user(server_acc, server_address, server_port,
     if reg_rights.endswith(','):
         reg_rights = reg_rights[:-1]
 
+    creds = (' -u %s %s ' % (username, password)) if (username and password) else ''
+    cmd_host = (' -h %s' % db_host) if db_host else ''
+    cmd_port = (' -P %s' % db_port) if db_port else ''
+
+    grant_cmd = "\"GRANT {} ON {}.* TO '{}'@'{}'" \
+                " IDENTIFIED BY '{}'\"" \
+                .format(reg_rights, db_name, reg_name, reg_address, reg_pwd)
+
+    command = "mysql {cr} {hst} {prt} -e {gr}".format(cr=creds, hst=cmd_host, prt=cmd_port, gr=grant_cmd)
+    return command
+
+
+def register_db_user(server_acc, server_address, server_port,
+                     reg_name, reg_pwd, reg_address, db_def_user, db_name,
+                     priv_select=False, priv_insert=False,
+                     priv_update=False, priv_delete=False):
+
+    print("\n\nRegistering user {} to database server on {}:{}..."
+          .format(reg_name, server_address, server_port))
+
+    ssh = get_ssh_connection(server_acc, server_address, server_port)
+    if not ssh:
+        print_error("Couldn't connect to database server, exit.")
+        sys.exit(1)
+
     while True:
         print("Enter you credentials to database on server {}".format(server_address))
         username = input("Username (empty for {}): ".format(db_def_user))
@@ -110,11 +126,8 @@ def register_db_user(server_acc, server_address, server_port,
         if len(password) > 0:
             password = "-p" + password
 
-        command = "mysql -u {0} {1} -e " \
-                  "\"GRANT {2} ON {3}.* TO '{4}'@'{5}'" \
-                  " IDENTIFIED BY '{6}'\""\
-            .format(username, password, reg_rights, db_name,
-                    reg_name, reg_address, reg_pwd)
+        command = get_db_reg_command(username, password, db_name, reg_name, reg_address, reg_pwd,
+                                     priv_select, priv_insert, priv_update, priv_delete)
 
         stdin, stdout, stderr = ssh.exec_command(command)
 

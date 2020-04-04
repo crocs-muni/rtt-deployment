@@ -4,6 +4,7 @@ import configparser
 import json
 import shutil
 import subprocess
+import argparse
 from os.path import join
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
@@ -15,7 +16,26 @@ deploy_cfg_file = "deployment_settings.ini"
 
 
 def main():
-    if len(sys.argv) != 2:
+    parser = argparse.ArgumentParser(description='Worker deployment')
+    parser.add_argument('--metacentrum', dest='metacentrum', action='store_const', const=True, default=False,
+                        help='Metacetrum deployment')
+    parser.add_argument('--db-passwd', dest='db_passwd',
+                        help='DB password to use, if given, skips DB registration')
+    parser.add_argument('--ssh-passphrase', dest='ssh_passphrase',
+                        help='SSH passphrase to use to protect the private key')
+    parser.add_argument('--ssh-priv', dest='ssh_priv',
+                        help='SSH private key to use instead of generated one, has to have .pub counterpart')
+    parser.add_argument('--no-db-reg', dest='no_db_reg', action='store_const', const=True, default=False,
+                        help='Skip MySQL user registration')
+    parser.add_argument('--no-ssh-reg', dest='no_ssh_reg', action='store_const', const=True, default=False,
+                        help='Skip SSH key registration at storage server')
+    parser.add_argument('backend_id', default=None,
+                        help='Config file')
+    args = parser.parse_args()
+    wbare = not args.metacentrum
+
+    # Get path to main config from console
+    if not args.backend_id:
         print("\nUsage: ./deploy_backend.py <backend-id>\n")
         print("<backend-id> must be entered according to config with deployment settings.\n"
               "             Configuration file \"{}\" must\n"
@@ -30,7 +50,7 @@ def main():
         if len(deploy_cfg.sections()) == 0:
             raise FileNotFoundError("can't read: {}".format(deploy_cfg_file))
 
-        backend_sec = "Backend-" + sys.argv[1]
+        backend_sec = "Backend-" + args.backend_id
 
         Backend.address = get_no_empty(deploy_cfg, backend_sec, "IPv4-Address")
         Backend.rtt_files_dir = get_no_empty(deploy_cfg, backend_sec, "RTT-Files-dir")
@@ -119,46 +139,42 @@ def main():
     try:
         # Adding rtt-admin group that is intended to manage
         # directories and files related to rtt without root access
-        exec_sys_call_check("groupadd {}".format(Backend.RTT_ADMIN_GROUP),
-                            acc_codes=[0, 9])
+        exec_sys_call_check("groupadd {}".format(Backend.RTT_ADMIN_GROUP), acc_codes=[0, 9])
 
         # Remove directories that was created previously
         if os.path.exists(Backend.rtt_files_dir):
             shutil.rmtree(Backend.rtt_files_dir)
 
         # Create and copy needed files into rtt-files
-        create_dir(Backend.rtt_files_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
+        wgrp = Backend.RTT_ADMIN_GROUP
+        create_dir(Backend.rtt_files_dir, 0o2770, grp=wgrp)
 
         # Set ACL on top directory - ensures all new files will have correct permissions
         exec_sys_call_check("setfacl -R -d -m g::rwx {}".format(Backend.rtt_files_dir))
         exec_sys_call_check("setfacl -R -d -m o::--- {}".format(Backend.rtt_files_dir))
 
-        create_dir(Backend.cache_conf_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
-        create_dir(Backend.cache_data_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
-        create_dir(Backend.credentials_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
-        create_dir(Backend.rtt_exec_dir, 0o2770, grp=Backend.RTT_ADMIN_GROUP)
+        create_dir(Backend.cache_conf_dir, 0o2770, grp=wgrp)
+        create_dir(Backend.cache_data_dir, 0o2770, grp=wgrp)
+        create_dir(Backend.credentials_dir, 0o2770, grp=wgrp)
+        create_dir(Backend.rtt_exec_dir, 0o2770, grp=wgrp)
 
-        shutil.copy(CommonConst.BACKEND_CLEAN_CACHE_SCRIPT,
-                    Backend.clean_cache_path)
-        chmod_chown(Backend.clean_cache_path,
-                    0o770, grp=Backend.RTT_ADMIN_GROUP)
+        shutil.copy(CommonConst.BACKEND_CLEAN_CACHE_SCRIPT, Backend.clean_cache_path)
+        chmod_chown(Backend.clean_cache_path, 0o770, grp=wgrp)
 
         shutil.copy(CommonConst.BACKEND_RUN_JOBS_SCRIPT, Backend.run_jobs_path)
-        chmod_chown(Backend.run_jobs_path, 0o770, grp=Backend.RTT_ADMIN_GROUP)
+        chmod_chown(Backend.run_jobs_path, 0o770, grp=wgrp)
 
         if os.path.exists(Backend.common_files_dir):
             shutil.rmtree(Backend.common_files_dir)
 
         shutil.copytree(CommonConst.COMMON_FILES_DIR, Backend.common_files_dir)
-        recursive_chmod_chown(Backend.common_files_dir, mod_f=0o660, mod_d=0o2770,
-                              grp=Backend.RTT_ADMIN_GROUP)
+        recursive_chmod_chown(Backend.common_files_dir, mod_f=0o660, mod_d=0o2770, grp=wgrp)
 
         # Install packages
         install_debian_pkg("mailutils")
         install_debian_pkg("postfix")
         install_debian_pkg("libmysqlcppconn-dev")
-        # install_debian_pkg("libmysqlclient-dev")
-        install_debian_pkg("default-libmysqlclient-dev")
+        install_debian_pkg_at_least_one(["default-libmysqlclient-dev", "libmysqlclient-dev"])
         install_debian_pkg("python3-pip")
         install_debian_pkg("python3-cryptography")
         install_debian_pkg("python3-paramiko")
@@ -203,24 +219,25 @@ def main():
 
         # Build statistical batteries
         os.chdir(Backend.stat_batt_src_dir)
+
         exec_sys_call_check("./INSTALL")
-        recursive_chmod_chown(Backend.stat_batt_src_dir, mod_f=0o660, mod_d=0o2770,
-                              grp=Backend.RTT_ADMIN_GROUP)
+        recursive_chmod_chown(Backend.stat_batt_src_dir, mod_f=0o660, mod_d=0o2770, grp=wgrp)
         chmod_chown(Backend.DIEHARDER_BINARY_PATH, 0o770)
         chmod_chown(Backend.NIST_STS_BINARY_PATH, 0o770)
         chmod_chown(Backend.TESTU01_BINARY_PATH, 0o770)
+        # TODO: static build for dieharder
 
         # Build randomness testing toolkit
         os.chdir(Backend.rand_test_tool_src_dir)
-        exec_sys_call_check("make")
-        recursive_chmod_chown(Backend.rand_test_tool_src_dir, mod_f=0o660, mod_d=0o2770,
-                              grp=Backend.RTT_ADMIN_GROUP)
+        rtt_env = None if wbare else get_rtt_build_env(Backend.rand_test_tool_src_dir)
+        exec_sys_call_check("make", env=rtt_env)
+        recursive_chmod_chown(Backend.rand_test_tool_src_dir, mod_f=0o660, mod_d=0o2770, grp=wgrp)
         chmod_chown(Backend.RTT_BINARY_PATH, 0o770)
 
         # Build finished, go into original directory
         os.chdir(current_dir)
 
-        # Link rtt binary into execution directory
+        # Link RTT binary into execution directory
         os.symlink(join(Backend.rand_test_tool_src_dir, Backend.RTT_BINARY_PATH),
                    Backend.rtt_binary_path)
 
@@ -367,9 +384,10 @@ def main():
 
         from common.rtt_registration import register_db_user
         from common.rtt_registration import add_authorized_key_to_server
+        from common.rtt_registration import get_db_reg_command
 
         # Register machine to database
-        db_pwd = get_rnd_pwd()
+        db_pwd = args.db_passwd if args.db_passwd else get_rnd_pwd()
         cred_mysql_db_ini = configparser.ConfigParser()
         cred_mysql_db_ini.add_section("Credentials")
         cred_mysql_db_ini.set("Credentials", "Username", Backend.MYSQL_BACKEND_USER)
@@ -386,17 +404,30 @@ def main():
         with open(Backend.mysql_cred_json_path, "w") as f:
             json.dump(cred_mysql_db_json, f, indent=4)
 
-        register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
-                         Backend.MYSQL_BACKEND_USER, db_pwd, Backend.address,
-                         Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
-                         priv_select=True, priv_insert=True, priv_update=True)
+        if not args.no_db_reg:
+            register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
+                             Backend.MYSQL_BACKEND_USER, db_pwd, Backend.address,
+                             Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
+                             priv_select=True, priv_insert=True, priv_update=True)
+        else:
+            sql = get_db_reg_command(username=Database.MYSQL_ROOT_USERNAME, password=None,
+                                     db_name=Database.MYSQL_DB_NAME, reg_name=Backend.MYSQL_BACKEND_USER,
+                                     reg_address=Backend.address, reg_pwd=db_pwd,
+                                     priv_select=True, priv_insert=True, priv_update=True,
+                                     db_host=Database.address, db_port=Database.ssh_port)
+            print('DB user not registered to the DB server. Make sure the following user:password has access: ')
+            print(sql)
 
         # Register machine to storage
-        key_pwd = get_rnd_pwd()
-        exec_sys_call_check("ssh-keygen -q -b 2048 -t rsa -N {} -f {}"
-                            .format(key_pwd, Backend.ssh_store_pkey))
-        chmod_chown(Backend.ssh_store_pkey, 0o660, grp=Backend.RTT_ADMIN_GROUP)
-        chmod_chown(Backend.ssh_store_pubkey, 0o660, grp=Backend.RTT_ADMIN_GROUP)
+        key_pwd = args.ssh_passphrase if args.ssh_passphrase else get_rnd_pwd()
+        if args.ssh_priv:
+            shutil.copy(args.ssh_priv, Backend.ssh_store_pkey)
+            shutil.copy(args.ssh_priv + '.pub', Backend.ssh_store_pubkey)
+        else:
+            exec_sys_call_check("ssh-keygen -q -b 2048 -t rsa -N {} -f {}"
+                                .format(key_pwd, Backend.ssh_store_pkey))
+        chmod_chown(Backend.ssh_store_pkey, 0o660, grp=wgrp)
+        chmod_chown(Backend.ssh_store_pubkey, 0o660, grp=wgrp)
         with open(Backend.ssh_store_pubkey) as f:
             pub_key = f.read().rstrip()
 
@@ -408,21 +439,26 @@ def main():
         with open(Backend.ssh_cred_ini_path, "w") as f:
             cred_ssh_store_ini.write(f)
 
-        add_authorized_key_to_server(Storage.ssh_root_user, Storage.address, Storage.ssh_port,
-                                     pub_key, "{}{}".format(Storage.acc_chroot,
-                                                            join(Storage.CHROOT_HOME_DIR,
-                                                                 Storage.SSH_DIR,
-                                                                 Storage.AUTH_KEYS_FILE)))
+        authorized_keys_path = "{}{}".format(Storage.acc_chroot, join(Storage.CHROOT_HOME_DIR, Storage.SSH_DIR, Storage.AUTH_KEYS_FILE))
+        if args.no_ssh_reg:
+            print('Register the following key on the storage server at %s' % (authorized_keys_path,))
+            print('%s' % (pub_key,))
+
+        else:
+            add_authorized_key_to_server(Storage.ssh_root_user, Storage.address, Storage.ssh_port,
+                                         pub_key, authorized_keys_path)
 
         # Add cron jobs for cache cleaning and job running script
-        add_cron_job(Backend.clean_cache_path, Backend.config_ini_path,
-                     join(Backend.rtt_files_dir, Backend.CLEAN_CACHE_LOG))
+        if wbare:
+            add_cron_job(Backend.clean_cache_path, Backend.config_ini_path,
+                         join(Backend.rtt_files_dir, Backend.CLEAN_CACHE_LOG))
 
-        add_cron_job(Backend.run_jobs_path, Backend.config_ini_path,
-                     join(Backend.rtt_files_dir, Backend.RUN_JOBS_LOG))
+            add_cron_job(Backend.run_jobs_path, Backend.config_ini_path,
+                         join(Backend.rtt_files_dir, Backend.RUN_JOBS_LOG))
 
     except BaseException as e:
         print_error("{}. Fix error and run the script again.".format(e))
+
 
 if __name__ == "__main__":
     print_start("deploy_backend")

@@ -65,14 +65,24 @@ def install_debian_pkg(name):
         raise EnvironmentError("Installing package {}, error code: {}".format(name, rval))
 
 
+def install_debian_pkg_at_least_one(names):
+    for name in names:
+        try:
+            install_debian_pkg(name)
+            return True
+        except Exception as e:
+            pass
+    raise EnvironmentError("Installing packages {} failed".format(names))
+
+
 def install_python_pkg(name):
-    rval = call(["pip3", "install", name])
+    rval = call(["pip3", "install", "-U", "--no-cache", name])
     if rval != 0:
         raise EnvironmentError("Installing package {}, error code: {}".format(name, rval))
 
 
-def exec_sys_call_check(command, stdin=None, stdout=None, acc_codes=[0]):
-    rval = call(shlex.split(command), stdin=stdin, stdout=stdout)
+def exec_sys_call_check(command, stdin=None, stdout=None, acc_codes=[0], env=None):
+    rval = call(shlex.split(command), stdin=stdin, stdout=stdout, env=env)
     if rval not in acc_codes:
         raise EnvironmentError("Executing command \'{}\', error code: {}"
                                .format(command, rval))
@@ -110,3 +120,15 @@ def recursive_chmod_chown(path, mod_f, mod_d, own="", grp=""):
                                   mod_f, mod_d, own, grp)
     else:
         chmod_chown(path, mod_f, own, grp)
+
+
+def get_rtt_build_env(rtt_dir):
+    env = os.environ.copy()
+    env['LD_LIBRARY_PATH'] = '%s:%s' % (os.getenv('LD_LIBRARY_PATH', ''), rtt_dir)
+    env['LD_RUN_PATH'] = '%s:%s' % (os.getenv('LD_RUN_PATH', ''), rtt_dir)
+    env['LINK_PTHREAD'] = '-Wl,-Bdynamic -lpthread'
+    env['LINK_MYSQL'] = '-lmysqlcppconn -L/usr/lib/x86_64-linux-gnu/libmariadbclient.a -lmariadbclient'
+    env['LDFLAGS'] = '%s -Wl,-Bdynamic -ldl -lz -Wl,-Bstatic -static-libstdc++ -static-libgcc -L %s' % (os.getenv('LDFLAGS', ''), rtt_dir)
+    env['CXXFLAGS'] = '%s -Wl,-Bdynamic -ldl -lz -Wl,-Bstatic -static-libstdc++ -static-libgcc -L %s' % (os.getenv('CXXFLAGS', ''), rtt_dir)
+    return env
+
