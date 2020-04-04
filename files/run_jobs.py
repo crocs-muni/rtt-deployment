@@ -753,6 +753,8 @@ def main():
                         help='Cleanup jobs stucked in running state')
     parser.add_argument('--pbspro', dest='pbspro', action='store_const', const=True, default=False,
                         help='Enables PBSpro features, such as scratch space usage')
+    parser.add_argument('--pack-nist', dest='pack_nist', default=0, type=int,
+                        help='Pack NIST outputs for later debugging')
     parser.add_argument('config', default=None,
                         help='Config file')
     args = parser.parse_args()
@@ -1063,7 +1065,7 @@ def main():
             if data_hash_preexec != data_hash_postexec:
                 logger.error("Data file hashes differ!")
 
-            if "nist" in job_info.battery and exp_log_dir:
+            if "nist" in job_info.battery and exp_log_dir and args.pack_nist:
                 logger.info("Packing worker dir %s to %s" % (worker_exp_dir, exp_log_dir))
                 pack_log_dir(worker_exp_dir, exp_log_dir, job_info, backend_data)
 
