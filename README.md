@@ -159,3 +159,39 @@ Update `backend.ini`:
 binary-path = /home/user/rtt_worker/rtt_execution/randomness-testing-toolkit
 booltest-rtt-path = /home/user/.pyenv/versions/3.7.1/bin/booltest_rtt
 ```
+
+Configuration in `rtt-settings.json`:
+
+```json
+{
+    "booltest": {
+        "default-cli": "--no-summary --json-out --log-prints --top 128 --no-comb-and --only-top-comb --only-top-deg --no-term-map --topterm-heap --topterm-heap-k 256 --best-x-combs 512",
+        "strategies": [
+            {
+                "name": "v1",
+                "cli": "",
+                "variations": [
+                    {
+                        "bl": [128, 256, 384, 512],
+                        "deg": [1, 2, 3],
+                        "cdeg": [1, 2, 3],
+                        "exclusions": []
+                    }
+                ]
+            },
+            {
+                "name": "halving",
+                "cli": "--halving",
+                "variations": [
+                    {
+                        "bl": [128, 256, 384, 512],
+                        "deg": [1, 2, 3],
+                        "cdeg": [1, 2, 3],
+                        "exclusions": []
+                    }
+                ]
+            }
+        ]
+    }
+}
+```
