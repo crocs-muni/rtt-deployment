@@ -18,16 +18,18 @@ trap "clean_scratch" TERM EXIT
 
 export HMDIR="{{{STORAGE_ROOT}}}"
 export BASEDR="$HMDIR/rtt_worker"
-cd "${BASEDR}"
+export HOME=$HMDIR
+export RTT_PARALLEL={{{RTT_PARALLEL}}}
 
 mkdir -p `dirname {{{LOG_ERR}}}` 2>/dev/null
 mkdir -p `dirname {{{LOG_OUT}}}` 2>/dev/null
 
-set -o pipefail
+cd $HMDIR
 . $HMDIR/pyenv-brno3.sh
 pyenv local 3.7.1
 
-export RTT_PARALLEL={{{RTT_PARALLEL}}}
+cd "${BASEDR}"
+set -o pipefail
 exec stdbuf -eL $HMDIR/.pyenv/versions/3.7.1/bin/python \\
   ./run_jobs.py $BASEDR/backend.ini \\
   --forwarded-mysql 1 \\
@@ -171,7 +173,7 @@ class JobGenerator:
         parser.add_argument('--qsub-ncpu', dest='qsub_ncpu', default=2, type=int,
                             help='qsub:  Number of processors to allocate for a job')
 
-        parser.add_argument('--qsub-ram', dest='qsub_ram', default=4, type=float,
+        parser.add_argument('--qsub-ram', dest='qsub_ram', default=4, type=int,
                             help='qsub:  RAM to allocate in GB')
 
         parser.add_argument('--test-time', dest='test_time', default=60*60, type=int,
