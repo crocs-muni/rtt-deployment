@@ -36,6 +36,8 @@ def main():
                         help='Skip cron setup')
     parser.add_argument('--ph4-rtt', dest='ph4_rtt', action='store_const', const=True, default=False,
                         help='Use Ph4r05 fork of RTT - required for metacentrum')
+    parser.add_argument('--config', dest='config', default='deployment_settings.ini',
+                        help='Path to deployment_settings.ini')
     parser.add_argument('backend_id', default=None,
                         help='Config file')
     args = parser.parse_args()
@@ -55,6 +57,7 @@ def main():
     deploy_cfg = configparser.ConfigParser()
 
     try:
+        deploy_cfg_file = args.config
         deploy_cfg.read(deploy_cfg_file)
         if len(deploy_cfg.sections()) == 0:
             raise FileNotFoundError("can't read: {}".format(deploy_cfg_file))
@@ -186,6 +189,8 @@ def main():
         install_debian_pkg("wget")
         install_debian_pkg("rsync")
         install_debian_pkg("unzip")
+        install_debian_pkg("sudo")
+        install_debian_pkg("acl")
         install_debian_pkg("git")
         install_debian_pkg("mailutils")
         if not args.no_email:
