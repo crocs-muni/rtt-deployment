@@ -232,7 +232,7 @@ DOCKER_ID=$(docker run -idt \
 
 docker exec $DOCKER_ID apt-get update -qq 2>/dev/null >/dev/null
 docker exec $DOCKER_ID apt-get install python3-pip -qq --yes 
-docker exec $DOCKER_ID python3 deploy_backend.py metacentrum --metacentrum --no-db-reg --no-ssh-reg
+docker exec $DOCKER_ID python3 deploy_backend.py metacentrum --metacentrum --no-db-reg --no-ssh-reg --no-email --no-cron
 docker exec $DOCKER_ID rsync -av $DEPLOY_PATH/ /result/
 
 # To get shell:

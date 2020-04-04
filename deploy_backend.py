@@ -5,6 +5,7 @@ import json
 import shutil
 import subprocess
 import argparse
+import traceback
 from os.path import join
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
@@ -29,6 +30,10 @@ def main():
                         help='Skip MySQL user registration')
     parser.add_argument('--no-ssh-reg', dest='no_ssh_reg', action='store_const', const=True, default=False,
                         help='Skip SSH key registration at storage server')
+    parser.add_argument('--no-email', dest='no_email', action='store_const', const=True, default=False,
+                        help='Skip email registration')
+    parser.add_argument('--no-cron', dest='no_cron', action='store_const', const=True, default=False,
+                        help='Skip cron setup')
     parser.add_argument('--ph4-rtt', dest='ph4_rtt', action='store_const', const=True, default=False,
                         help='Use Ph4r05 fork of RTT - required for metacentrum')
     parser.add_argument('backend_id', default=None,
@@ -98,8 +103,7 @@ def main():
         print_error("Invalid configuration. {}".format(e))
         sys.exit(1)
 
-    if not wbare:
-        os.makedirs(Backend.rtt_files_dir, 0o771, True)
+    os.makedirs(Backend.rtt_files_dir, 0o771, True)
 
     # Defined absolute paths to directories and files
     Backend.rand_test_tool_src_dir = \
@@ -184,7 +188,7 @@ def main():
         install_debian_pkg("unzip")
         install_debian_pkg("git")
         install_debian_pkg("mailutils")
-        if wbare:
+        if not args.no_email:
             install_debian_pkg("postfix")
 
         install_debian_pkg("libmysqlcppconn-dev")
@@ -243,14 +247,13 @@ def main():
         chmod_chown(Backend.DIEHARDER_BINARY_PATH, 0o770)
         chmod_chown(Backend.NIST_STS_BINARY_PATH, 0o770)
         chmod_chown(Backend.TESTU01_BINARY_PATH, 0o770)
-        if not wbare:
-            build_static_dieharder(Backend.stat_batt_src_dir)
+        build_static_dieharder(Backend.stat_batt_src_dir)
         os.chdir(Backend.stat_batt_src_dir)
 
         # Build randomness testing toolkit
         os.chdir(Backend.rand_test_tool_src_dir)
         rtt_env = None
-        if not wbare:
+        if args.ph4_rtt:
             lib_data = copy_rtt_libs(Backend.rand_test_tool_src_dir)
             rtt_env = get_rtt_build_env(Backend.rand_test_tool_src_dir, lib_data)
 
@@ -360,17 +363,18 @@ def main():
         # Add configuration to file
         # inet_interface = loopback-only
         # inet_protocol = ipv4
-        with open(Backend.POSTFIX_CFG_PATH) as mail_cfg:
-            for line in mail_cfg.readlines():
-                if line.startswith(Backend.POSTFIX_HOST_OPT):
-                    Backend.sender_email = line.split(sep=" = ")[1]
+        if not args.no_email:
+            with open(Backend.POSTFIX_CFG_PATH) as mail_cfg:
+                for line in mail_cfg.readlines():
+                    if line.startswith(Backend.POSTFIX_HOST_OPT):
+                        Backend.sender_email = line.split(sep=" = ")[1]
 
-        if Backend.sender_email is None:
+        if not args.no_email and Backend.sender_email is None:
             print_error("can't find option {} in file {}"
                         .format(Backend.POSTFIX_CFG_PATH, Backend.POSTFIX_HOST_OPT))
             sys.exit(1)
 
-        Backend.sender_email = "root@" + Backend.sender_email
+        Backend.sender_email = ("root@" + Backend.sender_email) if not args.no_email else 'rtt@crocs.fi.muni.cz'
 
         # Create backend configuration file
         backend_ini_cfg = configparser.ConfigParser()
@@ -397,7 +401,7 @@ def main():
         backend_ini_cfg.set("RTT-Binary", "Binary-path",
                             Backend.rtt_binary_path)
         try:
-            booltest_rtt_binary = subprocess.check_output(['which', 'booltest_rtt'])
+            booltest_rtt_binary = subprocess.check_output(['which', 'booltest_rtt']).decode('utf8').strip()
         except Exception as e:
             booltest_rtt_binary = ""
 
@@ -429,19 +433,20 @@ def main():
             json.dump(cred_mysql_db_json, f, indent=4)
 
         post_install_info = []
+        db_addr_from = Backend.address if wbare else '%'
         if not args.no_db_reg:
             register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
-                             Backend.MYSQL_BACKEND_USER, db_pwd, Backend.address,
+                             Backend.MYSQL_BACKEND_USER, db_pwd, db_addr_from,
                              Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
                              priv_select=True, priv_insert=True, priv_update=True)
         else:
             sql = get_db_reg_command(username=Database.MYSQL_ROOT_USERNAME, password=None,
                                      db_name=Database.MYSQL_DB_NAME, reg_name=Backend.MYSQL_BACKEND_USER,
-                                     reg_address=Backend.address, reg_pwd=db_pwd,
+                                     reg_address=db_addr_from, reg_pwd=db_pwd,
                                      priv_select=True, priv_insert=True, priv_update=True,
                                      db_host=Database.address, db_port=Database.ssh_port)
-            post_install_info.append('DB user not registered to the DB server. Make sure the following user:password has access: ')
-            post_install_info.append(sql)
+            post_install_info.append('* DB user not registered to the DB server. Make sure the following user:password has access: ')
+            post_install_info.append(sql + '\n')
 
         # Register machine to storage
         key_pwd = args.ssh_passphrase if args.ssh_passphrase else get_rnd_pwd()
@@ -466,15 +471,16 @@ def main():
 
         authorized_keys_path = "{}{}".format(Storage.acc_chroot, join(Storage.CHROOT_HOME_DIR, Storage.SSH_DIR, Storage.AUTH_KEYS_FILE))
         if args.no_ssh_reg:
-            post_install_info.append('Register the following key on the storage server at %s' % (authorized_keys_path,))
+            post_install_info.append('* Register the following key on the storage server at %s' % (authorized_keys_path,))
             post_install_info.append('%s' % (pub_key,))
+            post_install_info.append('')
 
         else:
             add_authorized_key_to_server(Storage.ssh_root_user, Storage.address, Storage.ssh_port,
                                          pub_key, authorized_keys_path)
 
         # Add cron jobs for cache cleaning and job running script
-        if wbare:
+        if not args.no_cron:
             add_cron_job(Backend.clean_cache_path, Backend.config_ini_path,
                          join(Backend.rtt_files_dir, Backend.CLEAN_CACHE_LOG))
 
@@ -488,6 +494,7 @@ def main():
 
     except BaseException as e:
         print_error("{}. Fix error and run the script again.".format(e))
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
