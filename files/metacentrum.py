@@ -20,8 +20,8 @@ export HMDIR="{{{STORAGE_ROOT}}}"
 export BASEDR="$HMDIR/rtt_worker"
 cd "${BASEDR}"
 
-mkdir -p `dirname LOG_ERR` 2>/dev/null
-mkdir -p `dirname LOG_OUT` 2>/dev/null
+mkdir -p `dirname {{{LOG_ERR}}}` 2>/dev/null
+mkdir -p `dirname {{{LOG_OUT}}}` 2>/dev/null
 
 set -o pipefail
 . $HMDIR/pyenv-brno3.sh
@@ -40,6 +40,7 @@ exec stdbuf -eL $HMDIR/.pyenv/versions/3.7.1/bin/python \\
   --run-time {{{RUN_TIME}}} \\
   --job-time {{{JOB_TIME}}} \\
   --pbspro \\
+  --data-to-scratch \\
   2> {{{LOG_ERR}}} > {{{LOG_OUT}}}
   
 # Copy logs back to FS
@@ -104,7 +105,7 @@ class JobGenerator:
             job_data = job_data.replace('{{{PERM_LOG_OUT}}}', perm_log_out)
             job_data = job_data.replace('{{{LOG_ERR}}}', log_err)
             job_data = job_data.replace('{{{LOG_OUT}}}', log_out)
-            job_data = job_data.replace('{{{RTT_PARALLEL}}}', self.args.qsub_ncpu - 1)
+            job_data = job_data.replace('{{{RTT_PARALLEL}}}', '%s' % (self.args.qsub_ncpu - 1))
 
             if '{{{' in job_data:
                 raise ValueError('Missed placeholder')
@@ -125,7 +126,7 @@ class JobGenerator:
             if self.args.cluster:
                 qsub_args.append('cl_%s=True' % self.args.cluster)
             if self.args.scratch:
-                qsub_args.append('scratch_local=500mb')
+                qsub_args.append('scratch_local=%smb' % self.args.scratch_size)
 
             walltime = '%02d:00:00' % self.args.hr_job
             nprocs = self.args.qsub_ncpu
@@ -184,6 +185,9 @@ class JobGenerator:
 
         parser.add_argument('--scratch', dest='scratch', default=1, type=int,
                             help='Disable scratch by setting to 0')
+
+        parser.add_argument('--scratch-size', dest='scratch_size', default=500, type=int,
+                            help='Scratch size in MB')
 
         parser.add_argument('--user', dest='user', default=None,
                             help='User running under, overrides system default')

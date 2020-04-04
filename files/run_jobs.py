@@ -28,6 +28,7 @@ import hashlib
 import itertools
 import binascii
 import subprocess
+import shutil
 from common.clilogging import *
 from common.rtt_db_conn import *
 from common.rtt_sftp_conn import *
@@ -346,12 +347,13 @@ def get_config_path(config_dir, experiment_id):
     return os.path.join(config_dir, "{}.json".format(experiment_id))
 
 
-def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=None, exp_dir=None):
+def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=None, exp_dir=None, input_data_path=None):
+    input_data_path = input_data_path if input_data_path else get_data_path(cache_data_dir, job_info.experiment_id)
     args = "{} -b {} -c {} -f {} -r db_mysql --eid {} --jid {}" \
         .format(rtt_binary,
                 job_info.battery,
                 get_config_path(cache_config_dir, job_info.experiment_id),
-                get_data_path(cache_data_dir, job_info.experiment_id),
+                input_data_path,
                 job_info.experiment_id,
                 job_info.id)
 
@@ -366,16 +368,17 @@ def get_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=Non
     return args
 
 
-def get_booltest_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=None, exp_dir=None):
+def get_booltest_rtt_arguments(job_info, rtt_config=None, mysql_host=None, mysql_port=None, exp_dir=None, input_data_path=None):
     if not booltest_rtt_binary:
         logger.error("BoolTest RTT wraper not found")
         return None
 
+    input_data_path = input_data_path if input_data_path else get_data_path(cache_data_dir, job_info.experiment_id)
     args = "{} -b {} -c {} -f {} --eid {} --jid {}" \
         .format(booltest_rtt_binary,
                 job_info.battery,
                 get_config_path(cache_config_dir, job_info.experiment_id),
-                get_data_path(cache_data_dir, job_info.experiment_id),
+                input_data_path,
                 job_info.experiment_id,
                 job_info.id)
 
@@ -700,6 +703,58 @@ def scratch_dir_get(fallback, pbspro=False):
     return scratch
 
 
+def get_scratch_worker_dir(scratch_dir):
+    return os.path.join(scratch_dir, "workers")
+
+
+def get_scratch_data_dir(scratch_dir):
+    return os.path.join(scratch_dir, "data")
+
+
+def clean_scratch(scratch_dir=None):
+    scratch_dir = scratch_dir if scratch_dir else scratch_dir_get(None, True)
+    if not scratch_dir:
+        return
+
+    rtt_utils.try_remove_rf(get_scratch_worker_dir(scratch_dir))
+    rtt_utils.try_remove_rf(get_scratch_data_dir(scratch_dir))
+
+
+def scratch_input_file(file_path, args, file_hash=None):
+    if not args.pbspro or not args.data_to_scratch:
+        return file_path
+
+    sdir = scratch_dir_get(None, True)
+    if not sdir:
+        return file_path
+
+    try:
+        st = os.stat(file_path)
+        fsize = st.st_size
+        scratch_size = rtt_utils.try_fnc(lambda: int(os.getenv('SCRATCH_VOLUME', None)))
+
+        # Check scratch size, if too small, use input file directly
+        if scratch_size is not None and fsize + 100*1024*1024 > scratch_size:
+            return file_path
+
+        # Delete previously used data file, re-create folder and copy
+        sdirdata = os.path.join(sdir, "data")
+        cached_file = os.path.join(sdirdata, os.path.basename(file_path))
+        if file_hash and os.path.exists(cached_file) and file_hash == try_hash_file(cached_file):
+            logger.debug("Using cached file")
+            return cached_file
+
+        logger.debug("Preparing scratch data dir")
+        rtt_utils.try_fnc(lambda: shutil.rmtree(sdirdata, True))
+        os.makedirs(sdirdata, 0o771, True)
+
+        logger.debug("Copying file %s to %s scratch" % (file_path, cached_file))
+        return shutil.copyfile(file_path, cached_file, follow_symlinks=True)
+
+    except Exception as e:
+        logger.error("Exception in scratch data file move: %s" % (e,), exc_info=e)
+
+
 #################
 # MAIN FUNCTION #
 #################
@@ -752,6 +807,8 @@ def main():
     parser.add_argument('--clean-jobs', dest='clean_jobs', default=None, type=int,
                         help='Cleanup jobs stucked in running state')
     parser.add_argument('--pbspro', dest='pbspro', action='store_const', const=True, default=False,
+                        help='Enables PBSpro features, such as scratch space usage')
+    parser.add_argument('--data-to-scratch', dest='data_to_scratch', action='store_const', const=True, default=False,
                         help='Enables PBSpro features, such as scratch space usage')
     parser.add_argument('--pack-nist', dest='pack_nist', default=0, type=int,
                         help='Pack NIST outputs for later debugging')
@@ -1009,6 +1066,7 @@ def main():
             fetch_data(job_info.experiment_id, sftp)
             data_file_path = get_data_path(cache_data_dir, job_info.experiment_id)
             data_hash_preexec = try_hash_file(data_file_path)
+            data_file_path = scratch_input_file(data_file_path, args, data_hash_preexec)
 
             logger.info("Executing job: job_id {}, experiment_id {}, file {}, hash {}"
                         .format(job_info.id, job_info.experiment_id,
@@ -1021,7 +1079,7 @@ def main():
                 rtt_settings = os.path.join(worker_base_dir, rtt_constants.Backend.RTT_SETTINGS_JSON)
                 rtt_args = get_booltest_rtt_arguments(job_info, rtt_config=rtt_settings,
                                                       mysql_host=mysql_params.host, mysql_port=mysql_params.port,
-                                                      exp_dir=worker_exp_dir)
+                                                      exp_dir=worker_exp_dir, input_data_path=data_file_path)
                 if not rtt_args:
                     rand_sleep()
                     continue
@@ -1031,8 +1089,11 @@ def main():
                 is_booltest = True
 
             else:
-                rtt_args = get_rtt_arguments(job_info, mysql_host=mysql_params.host,
-                                             mysql_port=mysql_params.port, exp_dir=worker_exp_dir)
+                rtt_args = get_rtt_arguments(job_info,
+                                             mysql_host=mysql_params.host,
+                                             mysql_port=mysql_params.port,
+                                             exp_dir=worker_exp_dir,
+                                             input_data_path=data_file_path)
                 logger.info("CMD: {}".format(rtt_args))
                 async_runner = rtt_worker.get_rtt_runner(shlex.split(rtt_args), cwd=os.path.dirname(rtt_binary))
 
@@ -1098,6 +1159,7 @@ def main():
         if mysql_forwarder:
             mysql_forwarder.shutdown()
         rtt_utils.try_remove_rf(worker_exp_dir)
+        clean_scratch()
 
         logger.info("System exit, terminating")
         os.umask(old_mask)
@@ -1111,6 +1173,7 @@ def main():
         db.close()
         os.umask(old_mask)
         rtt_utils.try_remove_rf(worker_exp_dir)
+        clean_scratch()
 
         if mysql_forwarder:
             mysql_forwarder.shutdown()

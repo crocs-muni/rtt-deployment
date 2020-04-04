@@ -67,9 +67,9 @@ cat backup_rtt_db.2019-08-12.180429.sql.gz | gunzip | mysql
 
 
 ### RTT build
-- copy /usr/include/cppconn and /usr/lib/x86_64-linux-gnu/libmysqlcppconn.* to the randomness-testing-toolkit dir
-- edit Makefile, add -L.  to include local libmysqlcppconn.so
-- for execution define LD_LIBRARY_PATH=. ./  if not compiled on metacentrum, otherwise compilation with updated makefile changes it, it works without setting LD_LIBRARY_PATH
+- copy `/usr/include/cppconn` and `/usr/lib/x86_64-linux-gnu/libmysqlcppconn.*` to the randomness-testing-toolkit dir
+- edit Makefile, add `-L.`  to include local `libmysqlcppconn.so`
+- for execution define `LD_LIBRARY_PATH=.` ./  if not compiled on metacentrum, otherwise compilation with updated makefile changes it, it works without setting `LD_LIBRARY_PATH`
 
 ```bash
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:`pwd`"
