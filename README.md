@@ -74,9 +74,26 @@ cat backup_rtt_db.2019-08-12.180429.sql.gz | gunzip | mysql
 ```bash
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:`pwd`"
 export LD_RUN_PATH="$LD_RUN_PATH:`pwd`"
-export LDFLAGS="$LDFLAGS -L `pwd`"
+export LINK_PTHREAD="-Wl,-Bdynamic -lpthread"
+export LINK_MYSQL="-lmysqlcppconn -L/usr/lib/x86_64-linux-gnu/libmariadbclient.a -lmariadbclient"
+export LDFLAGS="$LDFLAGS -Wl,-Bdynamic -ldl -lz -Wl,-Bstatic -static-libstdc++ -static-libgcc -L `pwd`"
+export CXXFLAGS="$CXXFLAGS -Wl,-Bdynamic -ldl -lz -Wl,-Bstatic -static-libstdc++ -static-libgcc -L `pwd`"
 make
 ./randomness-testing-toolkit   # works without LD_RUN_PATH when compiled with these ENVs set
+
+# Show dynamically linked dependencies
+ldd randomness-testing-toolkit
+```
+
+Output: 
+```
+	linux-vdso.so.1 (0x00007fff72df5000)
+	libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f30e07d8000)
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007f30e05be000)
+	libpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x00007f30e03a1000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f30e009d000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f30dfcfe000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f30e09dc000)
 ```
 
 
