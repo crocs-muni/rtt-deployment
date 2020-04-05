@@ -2,13 +2,13 @@
 
 import configparser
 import subprocess
+import argparse
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
 
 ################################
 # Global variables declaration #
 ################################
-deploy_cfg_file = "deployment_settings.ini"
 
 
 def set_cfg_value(key, value, cfg_path, sep="="):
@@ -29,6 +29,12 @@ def comment_cfg_line(line_content, cfg_path):
 
 def main():
     # Reading configuration
+    parser = argparse.ArgumentParser(description='DB deployment')
+    parser.add_argument('--config', dest='config', default='deployment_settings.ini',
+                        help='Path to deployment_settings.ini')
+    args = parser.parse_args()
+    deploy_cfg_file = args.config
+
     deploy_cfg = configparser.ConfigParser()
 
     try:

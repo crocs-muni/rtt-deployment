@@ -1,7 +1,7 @@
 #! /usr/bin/python3
 
 import configparser
-import shutil
+import argparse
 import grp
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
@@ -9,7 +9,6 @@ from common.rtt_constants import *
 ################################
 # Global variables declaration #
 ################################
-deploy_cfg_file = "deployment_settings.ini"
 
 
 def rec_set_same_rights_to_g_as_o(path):
@@ -24,6 +23,12 @@ def rec_set_same_rights_to_g_as_o(path):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Frontend deployment')
+    parser.add_argument('--config', dest='config', default='deployment_settings.ini',
+                        help='Path to deployment_settings.ini')
+    args = parser.parse_args()
+    deploy_cfg_file = args.config
+
     deploy_cfg = configparser.ConfigParser()
 
     try:

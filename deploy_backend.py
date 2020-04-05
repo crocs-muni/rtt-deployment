@@ -13,7 +13,6 @@ from common.rtt_constants import *
 ################################
 # Global variables declaration #
 ################################
-deploy_cfg_file = "deployment_settings.ini"
 
 
 def main():
@@ -39,11 +38,12 @@ def main():
     parser.add_argument('--config', dest='config', default='deployment_settings.ini',
                         help='Path to deployment_settings.ini')
     parser.add_argument('backend_id', default=None,
-                        help='Config file')
+                        help='Backend ID to deploy')
     args = parser.parse_args()
     wbare = not args.metacentrum
     if args.metacentrum:
         args.ph4_rtt = True
+    deploy_cfg_file = args.config
 
     # Get path to main config from console
     if not args.backend_id:
@@ -57,7 +57,6 @@ def main():
     deploy_cfg = configparser.ConfigParser()
 
     try:
-        deploy_cfg_file = args.config
         deploy_cfg.read(deploy_cfg_file)
         if len(deploy_cfg.sections()) == 0:
             raise FileNotFoundError("can't read: {}".format(deploy_cfg_file))
