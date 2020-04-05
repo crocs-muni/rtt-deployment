@@ -12,6 +12,12 @@ class CommonConst(object):
     BACKEND_CLEAN_CACHE_SCRIPT = "files/clean_cache.py"
     PASSWD_MYSQL = "/root/mysql-pass.txt"
     CONF_MYSQL = "/root/.my.cnf"
+    USR_SRC = "/usr/src"
+
+    CRYPTOSTREAMS_REPO = 'https://github.com/crocs-muni/CryptoStreams.git'
+    CRYPTOSTREAMS_REPO_BRANCH = 'master'
+    CRYPTOSTREAMS_REPO_PH4 = 'https://github.com/ph4r05/eacirc-streams.git'
+    CRYPTOSTREAMS_REPO_BRANCH_PH4 = 'ph4'
 
 
 class Database(object):
@@ -55,7 +61,7 @@ class Frontend(object):
     SSH_DIR = ".ssh"
     AUTH_KEYS_FILE = "authorized_keys"
     FSTAB_FILE = "/etc/fstab"
-    CHROOT_DEBIAN_VERSION = "jessie"
+    CHROOT_DEBIAN_VERSION = "stretch"
 
 
 class Backend(object):

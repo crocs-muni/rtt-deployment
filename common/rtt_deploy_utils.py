@@ -5,8 +5,9 @@ import sys
 import glob
 import shutil
 import shlex
-from subprocess import call
+from subprocess import call, Popen, PIPE
 from common.clilogging import *
+from common.rtt_constants import *
 
 
 def try_fnc(fnc):
@@ -14,6 +15,11 @@ def try_fnc(fnc):
         return fnc()
     except:
         pass
+
+
+def verify_output(ret_code, accept=[0], cmd=None):
+    if ret_code not in accept:
+        raise EnvironmentError("Command %s failed with code %s" % (cmd, accept))
 
 
 def check_paths_abs(paths):
@@ -253,3 +259,99 @@ def build_static_dieharder(bat_dir):
     exec_sys_call_check("make -j2", acc_codes=[0, 1, 2, 3])
     exec_sys_call_check("make -j2", acc_codes=[0, 1, 2, 3])
     exec_sys_call_check("make install")
+
+
+def submit_experiment_deploy(cdir):
+    install_python_pkgs([
+        "pyinstaller", "filelock", "jsonpath-ng", "booltest", "booltest-rtt"
+    ])
+    submit_experiment_build(cdir)
+
+
+def submit_experiment_build(cdir):
+    current_dir = os.path.abspath(os.path.curdir)
+    try:
+        os.chdir(cdir)
+        submit_exp_base_name = os.path.splitext(Frontend.SUBMIT_EXPERIMENT_SCRIPT)[0]
+        exec_sys_call_check("pyinstaller -F {}".format(Frontend.SUBMIT_EXPERIMENT_SCRIPT))
+        shutil.move("dist/{}".format(submit_exp_base_name),
+                    Frontend.SUBMIT_EXPERIMENT_BINARY)
+        chmod_chown(Frontend.SUBMIT_EXPERIMENT_BINARY, 0o2775, grp=Frontend.RTT_ADMIN_GROUP)
+        shutil.rmtree("dist")
+        shutil.rmtree("build")
+        shutil.rmtree("__pycache__")
+        os.remove("{}.spec".format(submit_exp_base_name))
+    finally:
+        os.chdir(current_dir)
+
+
+def cryptostreams_get_repo(ph4=False):
+    if ph4:
+        return CommonConst.CRYPTOSTREAMS_REPO_PH4, CommonConst.CRYPTOSTREAMS_REPO_BRANCH_PH4
+    else:
+        return CommonConst.CRYPTOSTREAMS_REPO, CommonConst.CRYPTOSTREAMS_REPO_BRANCH
+
+
+def cryptostreams_clone(repo, branch, dst=None):
+    return exec_sys_call_check("git clone --recursive --branch %s %s %s" % (branch, repo, dst if dst else ''))
+
+
+def cryptostreams_build(cdir=None):
+    current_dir = os.path.abspath(os.path.curdir)
+
+    if cdir:
+        os.chdir(cdir)
+
+    try:
+        BUILD_DIR = 'build'
+        try_fnc(lambda: shutil.rmtree(BUILD_DIR))
+        os.makedirs(BUILD_DIR)
+        os.chdir(BUILD_DIR)
+        exec_sys_call_check("cmake ..",  acc_codes=[0, 1, 2])
+        exec_sys_call_check("make -j2",  acc_codes=[0, 1, 2])
+        exec_sys_call_check("make -j2",  acc_codes=[0, 1, 2])
+        return os.path.abspath('./crypto-streams')
+
+    finally:
+        os.chdir(current_dir)
+
+
+def cryptostreams_link(crypto_dir, crypto_bin, ph4=False, res_bin_dir='/usr/bin'):
+    cmd = 'git -C "%s" rev-parse HEAD' % crypto_dir
+    p = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE)
+    output, err = p.communicate()
+    verify_output(p.returncode, cmd="CryptoStreams git rev-parse HEAD")
+    output = output.decode("utf8").strip()
+
+    ph4mod = '-ph4' if ph4 else ''
+    bname = 'crypto-streams-v3.0%s-%s' % (ph4mod, output[:12])
+    cpath = os.path.join(res_bin_dir, bname)
+    try_fnc(lambda: os.unlink(cpath))
+    shutil.copy(crypto_bin, cpath)
+    os.chmod(cpath, 0o755)
+
+    lnks = [
+        os.path.join(res_bin_dir, 'crypto-streams-v3.0'),
+        os.path.join(res_bin_dir, 'crypto-streams')]
+    for lnk in lnks:
+        try_fnc(lambda: os.unlink(lnk))
+        os.symlink(cpath, lnk)
+
+
+def cryptostreams_complete_deploy(ph4=False, res_bin_dir='/usr/bin'):
+    install_debian_pkgs(["cmake"])
+    current_dir = os.path.abspath(os.path.curdir)
+    try:
+        os.chdir(CommonConst.USR_SRC)
+        crypto_dir = 'crypto-streams'
+        crypto_repo, crypto_branch = cryptostreams_get_repo(ph4)
+
+        if os.path.exists(crypto_dir):
+            shutil.rmtree(crypto_dir)
+
+        cryptostreams_clone(crypto_repo, crypto_branch, crypto_dir)
+        cbin = cryptostreams_build(crypto_dir)
+        cryptostreams_link(crypto_dir, cbin, ph4=ph4, res_bin_dir=res_bin_dir)
+    finally:
+        os.chdir(current_dir)
+

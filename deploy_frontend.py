@@ -3,6 +3,7 @@
 import configparser
 import argparse
 import grp
+import traceback
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
 
@@ -24,10 +25,24 @@ def rec_set_same_rights_to_g_as_o(path):
 
 def main():
     parser = argparse.ArgumentParser(description='Frontend deployment')
+    parser.add_argument('--ph4', dest='ph4', action='store_const', const=True, default=False,
+                        help='Use Ph4 forks of tools')
+    parser.add_argument('--no-chroot', dest='no_chroot', action='store_const', const=True, default=False,
+                        help='No chroot install, install to root')
+    parser.add_argument('--local-db', dest='local_db', action='store_const', const=True, default=False,
+                        help='DB server is on the same machine')
+    parser.add_argument('--no-ssh-server', dest='no_ssh_server', action='store_const', const=True, default=False,
+                        help='DB server is on the same machine')
+    parser.add_argument('--mysql-pass', dest='mysql_pass', action='store_const', const=True, default=False,
+                        help='DB password to use')
+    parser.add_argument('--mysql-pass-file', dest='mysql_pass_file', action='store_const', const=True, default=False,
+                        help='DB password file to use')
     parser.add_argument('--config', dest='config', default='deployment_settings.ini',
                         help='Path to deployment_settings.ini')
     args = parser.parse_args()
     deploy_cfg_file = args.config
+    if args.no_choor:
+        args.no_ssh_server = True
 
     deploy_cfg = configparser.ConfigParser()
 
@@ -80,6 +95,9 @@ def main():
     # Setting of paths used in this script
     Frontend.abs_rtt_files = \
         Frontend.rtt_users_chroot + Frontend.CHROOT_RTT_FILES
+    if args.no_chroot:
+        Frontend.abs_rtt_files = Frontend.CHROOT_RTT_FILES
+
     Frontend.abs_config_ini = \
         os.path.join(Frontend.abs_rtt_files, Frontend.FRONT_CONFIG_FILE)
     Frontend.abs_submit_exp_script = \
@@ -108,6 +126,8 @@ def main():
         os.path.join(Frontend.rel_cred_dir, Frontend.SSH_CREDENTIALS_KEY)
 
     try:
+        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync", "openssh-client", "git"])
+
         # Adding rtt-admin group that is intended to manage
         # directories and files related to rtt without root access
         exec_sys_call_check("groupadd {}".format(Frontend.RTT_ADMIN_GROUP),
@@ -123,23 +143,31 @@ def main():
         
         # Delete chroot directory if it exists
         if os.path.exists(Frontend.rtt_users_chroot):
+            print("Deleting %s" % Frontend.rtt_users_chroot)
+            try_fnc(lambda: exec_sys_call("umount %s" % os.path.join(Frontend.rtt_users_chroot, "proc")))
+            try_fnc(lambda: exec_sys_call("umount %s" % os.path.join(Frontend.rtt_users_chroot, "sys")))
             shutil.rmtree(Frontend.rtt_users_chroot)
+
+        if os.path.exists(Frontend.abs_rtt_files):
+            print("Deleting %s" % Frontend.abs_rtt_files)
+            shutil.rmtree(Frontend.abs_rtt_files)
         
         # Building chroot jail for rtt users
         create_dir(Frontend.rtt_users_chroot, 0o775, grp=Frontend.RTT_ADMIN_GROUP)
-        exec_sys_call_check("debootstrap {} {}".format(Frontend.CHROOT_DEBIAN_VERSION,
-                                                       Frontend.rtt_users_chroot))
-        with open(Frontend.FSTAB_FILE, "a") as f:
-            f.write("proc {} proc defaults 0 0\n"
-                    .format(os.path.join(Frontend.rtt_users_chroot, "proc")))
-            f.write("sysfs {} sysfs defaults 0 0\n"
-                    .format(os.path.join(Frontend.rtt_users_chroot, "sys")))
+        if not args.no_chroot:
+            exec_sys_call_check("debootstrap {} {}".format(Frontend.CHROOT_DEBIAN_VERSION,
+                                                           Frontend.rtt_users_chroot))
+            with open(Frontend.FSTAB_FILE, "a") as f:
+                f.write("proc {} proc defaults 0 0\n"
+                        .format(os.path.join(Frontend.rtt_users_chroot, "proc")))
+                f.write("sysfs {} sysfs defaults 0 0\n"
+                        .format(os.path.join(Frontend.rtt_users_chroot, "sys")))
 
-        exec_sys_call_check("mount proc {} -t proc"
-                            .format(os.path.join(Frontend.rtt_users_chroot, "proc")))
-        exec_sys_call_check("mount sysfs {} -t sysfs"
-                            .format(os.path.join(Frontend.rtt_users_chroot, "sys")))
-        shutil.copy("/etc/hosts", os.path.join(Frontend.rtt_users_chroot, "etc/hosts"))
+            exec_sys_call_check("mount proc {} -t proc"
+                                .format(os.path.join(Frontend.rtt_users_chroot, "proc")))
+            exec_sys_call_check("mount sysfs {} -t sysfs"
+                                .format(os.path.join(Frontend.rtt_users_chroot, "sys")))
+            shutil.copy("/etc/hosts", os.path.join(Frontend.rtt_users_chroot, "etc/hosts"))
 
         create_dir(Frontend.abs_rtt_files, 0o2775, grp=Frontend.RTT_ADMIN_GROUP)
         # Set ACL on top directory - ensures all new files will have correct permissions
@@ -184,7 +212,8 @@ def main():
 
         # Entering chroot jail
         real_root = os.open("/", os.O_RDONLY)
-        os.chroot(Frontend.rtt_users_chroot)
+        if not args.no_chroot:
+            os.chroot(Frontend.rtt_users_chroot)
 
         # Adding groups - instead there should be two-way sync!!!
         exec_sys_call_check("groupadd -g {} {}".format(rtt_admin_grp_gid, Frontend.RTT_ADMIN_GROUP),
@@ -193,35 +222,27 @@ def main():
                             acc_codes=[0, 9])
 
         # Installing needed packages inside jail
-        install_debian_pkg("python3")
-        install_debian_pkg("python3-dev")
-        install_debian_pkg("python3-setuptools")
-        install_debian_pkg("libmysqlclient-dev")
-        install_debian_pkg("build-essential")
-        install_debian_pkg("python3-cryptography")
-        install_debian_pkg("python3-paramiko")
-        install_debian_pkg("python3-pip")
+        install_debian_pkg_at_least_one(["default-libmysqlclient-dev", "libmysqlclient-dev"])
+        install_debian_pkgs([
+            "python3", "python3-dev", "python3-setuptools", "python3-cryptography", "python3-paramiko",
+            "python3-pip", "build-essential",
+        ])
 
-        install_python_pkg("pyinstaller")
-        install_python_pkg("mysqlclient")
-        install_python_pkg("filelock")
-        install_python_pkg("jsonpath-ng")
-        install_python_pkg("booltest")
-        install_python_pkg("booltest-rtt")
+        install_python_pkg("pip", no_cache=False)
+        install_python_pkgs([
+            "pyinstaller", "filelock", "jsonpath-ng", "booltest", "booltest-rtt"
+        ])
 
         os.chdir(Frontend.CHROOT_RTT_FILES)
-        exec_sys_call_check("pyinstaller -F {}".format(Frontend.SUBMIT_EXPERIMENT_SCRIPT))
-        shutil.move("dist/{}".format(Frontend.submit_exp_base_name),
-                    Frontend.SUBMIT_EXPERIMENT_BINARY)
-        chmod_chown(Frontend.SUBMIT_EXPERIMENT_BINARY, 0o2775, grp=Frontend.RTT_ADMIN_GROUP)
-        shutil.rmtree("dist")
-        shutil.rmtree("build")
-        shutil.rmtree("__pycache__")
-        os.remove("{}.spec".format(Frontend.submit_exp_base_name))
+        submit_experiment_deploy(Frontend.CHROOT_RTT_FILES)
+
+        # CryptoStreams
+        cryptostreams_complete_deploy(ph4=args.ph4)
 
         # Exiting chroot jail
-        os.fchdir(real_root)
-        os.chroot(".")
+        if not args.no_chroot:
+            os.fchdir(real_root)
+            os.chroot(".")
         os.close(real_root)
 
         sshd_config_append = "\n\n\n\n" \
@@ -235,13 +256,15 @@ def main():
                              "\n".format(Frontend.RTT_USER_GROUP, Frontend.rtt_users_chroot,
                                          os.path.join(Frontend.CHROOT_RTT_USERS_HOME, "%u",
                                                       Frontend.SSH_DIR, Frontend.AUTH_KEYS_FILE))
-        with open(Frontend.ssh_config, "a") as f:
-            f.write(sshd_config_append)
-            
-        exec_sys_call_check("service sshd restart")
 
-        install_debian_pkg("python3-cryptography")
-        install_debian_pkg("python3-paramiko")
+        if not args.no_ssh_server:
+            install_debian_pkgs(["openssh-server"])
+            with open(Frontend.ssh_config, "a") as f:
+                f.write(sshd_config_append)
+
+            exec_sys_call_check("service ssh restart")
+
+        install_debian_pkgs(["python3-cryptography", "python3-paramiko"])
         from common.rtt_registration import register_db_user
         from common.rtt_registration import add_authorized_key_to_server
 
@@ -254,10 +277,19 @@ def main():
         with open(Frontend.abs_cred_mysql_ini, "w") as f:
             cred_mysql_db_cfg.write(f)
 
+        db_def_passwd = None
+        if args.mysql_pass_file:
+            with open(args.mysql_pass_file, 'r') as fh:
+                db_def_passwd = fh.read().strip()
+
+        if args.mysql_pass is not None:
+            db_def_passwd = args.mysql_pass
+
         register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                          Frontend.MYSQL_FRONTEND_USER, cred_mysql_db_password, Frontend.address,
                          Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
-                         priv_insert=True, priv_select=True)
+                         priv_insert=True, priv_select=True,
+                         db_def_passwd=db_def_passwd, db_no_pass=args.local_db)
 
         # Register frontend at the storage
         cred_store_ssh_key_password = get_rnd_pwd()
@@ -289,6 +321,7 @@ def main():
 
     except BaseException as e:
         print_error("{}. Fix error and run the script again.".format(e))
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
