@@ -12,47 +12,14 @@ from common.rtt_constants import *
 # Global variables declaration #
 ################################
 
-# noinspection SqlDialectInspection,SqlNoDataSourceInspection
-sql_file_setup = """
-# Make sure that NOBODY can access the server without a password
-UPDATE mysql.user SET Password=PASSWORD('{{{MYSQL_PASS}}}') WHERE User='root';
-# Kill the anonymous users
-DELETE FROM mysql.user WHERE User='';
-# disallow remote login for root
-DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
-# Kill off the demo database
-DROP DATABASE IF EXISTS test;
-DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
-# Make our changes take effect
-FLUSH PRIVILEGES;
-"""
-
-sql_config_file = """[client]
-password="{{{MYSQL_PASS}}}"
-"""
-
-
-def set_cfg_value(key, value, cfg_path, sep="="):
-    sed_string = r"s_\({}\s*\){}\s*.*_\1= {}_".format(key, sep, value)
-    rval = subprocess.call(["sed", "-i", sed_string, cfg_path])
-    if rval != 0:
-        raise EnvironmentError("Executing sed command \'{}\', error code: {}"
-                               .format(sed_string, rval))
-
-
-def comment_cfg_line(line_content, cfg_path):
-    sed_string = r"s_\(.*{}.*\)_# \1_".format(line_content)
-    rval = subprocess.call(["sed", "-i", sed_string, cfg_path])
-    if rval != 0:
-        raise EnvironmentError("Executing sed command \'{}\', error code: {}"
-                               .format(sed_string, rval))
-
 
 def main():
     # Reading configuration
     parser = argparse.ArgumentParser(description='DB deployment')
     parser.add_argument('--config', dest='config', default='deployment_settings.ini',
                         help='Path to deployment_settings.ini')
+    parser.add_argument('--docker', dest='docker', action='store_const', const=True, default=False,
+                        help='Docker deployment')
     args = parser.parse_args()
     deploy_cfg_file = args.config
 
@@ -92,7 +59,7 @@ def main():
 
         # Configuring environment
         # exec_sys_call_check("mysql_secure_installation")
-        sql_file_setup_data = sql_file_setup.replace('{{{MYSQL_PASS}}}', mysql_pass)
+        sql_file_setup_data = Database.SQL_FILE_SETUP.replace('{{{MYSQL_PASS}}}', mysql_pass)
         with create_file_wperms(tmp_sql, mask=0o600, mode='w') as fh:
             fh.write(sql_file_setup_data)
 
@@ -106,10 +73,12 @@ def main():
 
         # Restarting mysql service
         exec_sys_call_check("service mysql restart")
+        if not args.docker:
+            service_enable("mariadb.service")
 
         backup_file(CommonConst.CONF_MYSQL, remove=True)
         with create_file_wperms(CommonConst.CONF_MYSQL, mask=0o600, mode='w') as fh:
-            fh.write(sql_config_file.replace('{{{MYSQL_PASS}}}', mysql_pass))
+            fh.write(Database.SQL_CONFIG_FILE.replace('{{{MYSQL_PASS}}}', mysql_pass))
 
         print_info("Creating database scheme: {}".format(Database.MYSQL_DB_NAME))
         exec_sys_call_check("mysql --no-auto-rehash -u {}"

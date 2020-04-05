@@ -25,6 +25,8 @@ def rec_set_same_rights_to_g_as_o(path):
 
 def main():
     parser = argparse.ArgumentParser(description='Frontend deployment')
+    parser.add_argument('--docker', dest='docker', action='store_const', const=True, default=False,
+                        help='Docker deployment')
     parser.add_argument('--ph4', dest='ph4', action='store_const', const=True, default=False,
                         help='Use Ph4 forks of tools')
     parser.add_argument('--no-chroot', dest='no_chroot', action='store_const', const=True, default=False,
@@ -270,21 +272,9 @@ def main():
 
         # Register frontend user at the database
         cred_mysql_db_password = get_rnd_pwd()
-        cred_mysql_db_cfg = configparser.ConfigParser()
-        cred_mysql_db_cfg.add_section("Credentials")
-        cred_mysql_db_cfg.set("Credentials", "Username", Frontend.MYSQL_FRONTEND_USER)
-        cred_mysql_db_cfg.set("Credentials", "Password", cred_mysql_db_password)
-        with open(Frontend.abs_cred_mysql_ini, "w") as f:
-            cred_mysql_db_cfg.write(f)
+        write_db_credentials(Frontend.MYSQL_FRONTEND_USER, cred_mysql_db_password, Frontend.abs_cred_mysql_ini)
 
-        db_def_passwd = None
-        if args.mysql_pass_file:
-            with open(args.mysql_pass_file, 'r') as fh:
-                db_def_passwd = fh.read().strip()
-
-        if args.mysql_pass is not None:
-            db_def_passwd = args.mysql_pass
-
+        db_def_passwd = get_mysql_password_args(args)
         register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                          Frontend.MYSQL_FRONTEND_USER, cred_mysql_db_password, Frontend.address,
                          Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
@@ -293,15 +283,8 @@ def main():
 
         # Register frontend at the storage
         cred_store_ssh_key_password = get_rnd_pwd()
-        cred_store_ssh_cfg = configparser.ConfigParser()
-        cred_store_ssh_cfg.add_section("Credentials")
-        cred_store_ssh_cfg.set("Credentials", "Username", Storage.storage_user)
-        cred_store_ssh_cfg.set("Credentials", "Private-key-file",
-                               Frontend.rel_cred_store_key)
-        cred_store_ssh_cfg.set("Credentials", "Private-key-password",
-                               cred_store_ssh_key_password)
-        with open(Frontend.abs_cred_store_ini, "w") as f:
-            cred_store_ssh_cfg.write(f)
+        write_ssh_credentials(Storage.storage_user, cred_store_ssh_key_password,
+                              Frontend.rel_cred_store_key, Frontend.abs_cred_store_ini)
 
         exec_sys_call_check("ssh-keygen -q -b 2048 -t rsa -N {} -f {}"
                             .format(cred_store_ssh_key_password, Frontend.abs_cred_store_key))
@@ -316,7 +299,8 @@ def main():
                                                    os.path.join(Storage.CHROOT_HOME_DIR,
                                                                 Storage.SSH_DIR,
                                                                 Storage.AUTH_KEYS_FILE)))
-
+        if not args.docker:
+            service_enable("ssh.service")
         # Everything should be okay now.
 
     except BaseException as e:

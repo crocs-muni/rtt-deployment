@@ -430,34 +430,14 @@ def main():
 
         # Register machine to database
         db_pwd = args.db_passwd if args.db_passwd else get_rnd_pwd()
-        cred_mysql_db_ini = configparser.ConfigParser()
-        cred_mysql_db_ini.add_section("Credentials")
-        cred_mysql_db_ini.set("Credentials", "Username", Backend.MYSQL_BACKEND_USER)
-        cred_mysql_db_ini.set("Credentials", "Password", db_pwd)
-        with open(Backend.mysql_cred_ini_path, "w") as f:
-            cred_mysql_db_ini.write(f)
-
-        cred_mysql_db_json = {
-            "credentials": {
-                "username": Backend.MYSQL_BACKEND_USER,
-                "password": db_pwd
-            }
-        }
-        with open(Backend.mysql_cred_json_path, "w") as f:
-            json.dump(cred_mysql_db_json, f, indent=4)
+        write_db_credentials(Backend.MYSQL_BACKEND_USER, db_pwd, Backend.mysql_cred_ini_path)
+        write_db_credentials_json(Backend.MYSQL_BACKEND_USER, db_pwd, Backend.mysql_cred_json_path)
 
         post_install_info = []
         db_addr_from = Backend.address if wbare else '%'
 
         if not args.no_db_reg:
-            db_def_passwd = None
-            if args.mysql_pass_file:
-                with open(args.mysql_pass_file, 'r') as fh:
-                    db_def_passwd = fh.read().strip()
-
-            if args.mysql_pass is not None:
-                db_def_passwd = args.mysql_pass
-
+            db_def_passwd = get_mysql_password_args(args)
             register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                              Backend.MYSQL_BACKEND_USER, db_pwd, db_addr_from,
                              Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
@@ -486,14 +466,7 @@ def main():
         with open(Backend.ssh_store_pubkey) as f:
             pub_key = f.read().rstrip()
 
-        cred_ssh_store_ini = configparser.ConfigParser()
-        cred_ssh_store_ini.add_section("Credentials")
-        cred_ssh_store_ini.set("Credentials", "Username", Storage.storage_user)
-        cred_ssh_store_ini.set("Credentials", "Private-key-file", Backend.ssh_store_pkey)
-        cred_ssh_store_ini.set("Credentials", "Private-key-password", key_pwd)
-        with open(Backend.ssh_cred_ini_path, "w") as f:
-            cred_ssh_store_ini.write(f)
-
+        write_ssh_credentials(Storage.storage_user, key_pwd, Backend.ssh_store_pkey, Backend.ssh_cred_ini_path)
         authorized_keys_path = "{}{}".format(Storage.acc_chroot, join(Storage.CHROOT_HOME_DIR, Storage.SSH_DIR, Storage.AUTH_KEYS_FILE))
         if args.no_ssh_reg:
             post_install_info.append('* Register the following key on the storage server at %s' % (authorized_keys_path,))
@@ -512,6 +485,9 @@ def main():
 
             add_cron_job(Backend.run_jobs_path, Backend.config_ini_path,
                          join(Backend.rtt_files_dir, Backend.RUN_JOBS_LOG))
+            exec_sys_call_check("service cron restart")
+            if not args.docker:
+                service_enable("cron.service")
 
         if post_install_info:
             print('='*80)
