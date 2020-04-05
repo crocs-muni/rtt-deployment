@@ -126,8 +126,9 @@ def install_debian_pkg_at_least_one(names):
     raise EnvironmentError("Installing packages {} failed".format(names))
 
 
-def install_python_pkg(name):
-    rval = call(["pip3", "install", "-U", "--no-cache", name])
+def install_python_pkg(name, no_cache=True):
+    cache = ['--no-cache'] if no_cache else []
+    rval = call(["pip3", "install", "-U", *cache, name])
     if rval != 0:
         raise EnvironmentError("Installing package {}, error code: {}".format(name, rval))
 
@@ -136,6 +137,10 @@ def install_python_pkgs(names):
     rval = call(["pip3", "install", "-U", "--no-cache", *names])
     if rval != 0:
         raise EnvironmentError("Installing package {}, error code: {}".format(names, rval))
+
+
+def exec_sys_call(command, stdin=None, stdout=None, env=None, shell=False):
+    return call(shlex.split(command), stdin=stdin, stdout=stdout, env=env, shell=shell)
 
 
 def exec_sys_call_check(command, stdin=None, stdout=None, acc_codes=[0], env=None, shell=False):

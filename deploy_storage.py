@@ -97,7 +97,7 @@ def main():
         os.path.join(Storage.rtt_credentials_dir, Storage.MYSQL_CREDENTIALS_FILE)
 
     try:
-        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync", "cron"])
+        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync", "cron", "openssh-client"])
         install_debian_pkg("openssh-server")
 
         # Creating sftp jail for account
@@ -193,6 +193,7 @@ def main():
         install_debian_pkg_at_least_one(["default-libmysqlclient-dev", "libmysqlclient-dev"])
         install_debian_pkgs(["python3-pip", "python3-cryptography", "python3-paramiko"])
 
+        install_python_pkg("pip", no_cache=False)
         install_python_pkg("mysqlclient")
 
         # This can be done only after installing cryptography and paramiko

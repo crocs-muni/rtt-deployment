@@ -166,7 +166,7 @@ def main():
 
     try:
         # Install essential packages
-        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync", "git"])
+        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync", "git", "openssh-client"])
 
         # Adding rtt-admin group that is intended to manage
         # directories and files related to rtt without root access
@@ -209,6 +209,7 @@ def main():
         install_debian_pkg_at_least_one(["default-libmysqlclient-dev", "libmysqlclient-dev"])
         install_debian_pkgs(["python3-pip", "python3-cryptography", "python3-paramiko"])
 
+        install_python_pkg("pip", no_cache=False)
         install_python_pkgs([
             "mysqlclient", "sarge", "requests", "shellescape", "coloredlogs", "filelock",
             "sshtunnel", "booltest", "booltest-rtt"

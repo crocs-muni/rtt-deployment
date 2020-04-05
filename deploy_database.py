@@ -81,7 +81,7 @@ def main():
     sec_fpath = CommonConst.PASSWD_MYSQL
     tmp_sql = '/tmp/setup.sql'
     try:
-        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync"])
+        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync", "openssh-client"])
         install_debian_pkg("mysql-server")
         exec_sys_call_check("service mysql start")
 
