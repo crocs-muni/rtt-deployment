@@ -164,9 +164,8 @@ def main():
         create_dir(Backend.rtt_files_dir, 0o2770, grp=wgrp)
 
         # Set ACL on top directory - ensures all new files will have correct permissions
-        if wbare:
-            exec_sys_call_check("setfacl -R -d -m g::rwx {}".format(Backend.rtt_files_dir))
-            exec_sys_call_check("setfacl -R -d -m o::--- {}".format(Backend.rtt_files_dir))
+        exec_sys_call_check("setfacl -R -d -m g::rwx {}".format(Backend.rtt_files_dir))
+        exec_sys_call_check("setfacl -R -d -m o::--- {}".format(Backend.rtt_files_dir))
 
         create_dir(Backend.cache_conf_dir, 0o2770, grp=wgrp)
         create_dir(Backend.cache_data_dir, 0o2770, grp=wgrp)
