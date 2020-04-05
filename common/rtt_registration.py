@@ -115,9 +115,22 @@ def get_ssh_connection(def_username, address, port):
             continue
 
 
+def get_db_command(username, password, command, db_host=None, db_port=None):
+    creds = (' -u %s' % (username,)) if username else ''
+    if password:
+        creds += ' -p %s' % password
+
+    cmd_host = (' -h %s' % db_host) if db_host else ''
+    cmd_port = (' -P %s' % db_port) if db_port else ''
+
+    res = "mysql {cr} {hst} {prt} -e {gr}".format(cr=creds, hst=cmd_host, prt=cmd_port, gr=command)
+    return res
+
+
 def get_db_reg_command(username, password, db_name, reg_name, reg_address, reg_pwd,
                        priv_select=False, priv_insert=False,
                        priv_update=False, priv_delete=False,
+                       priv_create=False, priv_alter=False, priv_index=False,
                        db_host=None, db_port=None):
     reg_rights = ""
     if priv_select:
@@ -128,45 +141,35 @@ def get_db_reg_command(username, password, db_name, reg_name, reg_address, reg_p
         reg_rights += "UPDATE,"
     if priv_delete:
         reg_rights += "DELETE,"
+    if priv_create:
+        reg_rights += "CREATE,"
+    if priv_alter:
+        reg_rights += "ALTER,"
+    if priv_index:
+        reg_rights += "INDEX,"
 
     if reg_rights.endswith(','):
         reg_rights = reg_rights[:-1]
 
-    creds = (' -u %s' % (username,)) if username else ''
-    if password:
-        creds += ' -p %s' % password
-
-    cmd_host = (' -h %s' % db_host) if db_host else ''
-    cmd_port = (' -P %s' % db_port) if db_port else ''
-
     grant_cmd = "\"GRANT {} ON {}.* TO '{}'@'{}'" \
                 " IDENTIFIED BY '{}'\"" \
                 .format(reg_rights, db_name, reg_name, reg_address, reg_pwd)
-
-    command = "mysql {cr} {hst} {prt} -e {gr}".format(cr=creds, hst=cmd_host, prt=cmd_port, gr=grant_cmd)
-    return command
+    return get_db_command(username, password, grant_cmd, db_host, db_port)
 
 
 def register_db_user(server_acc, server_address, server_port,
                      reg_name, reg_pwd, reg_address, db_def_user, db_name,
                      priv_select=False, priv_insert=False,
                      priv_update=False, priv_delete=False,
+                     priv_create=False, priv_alter=False, priv_index=False,
                      db_def_passwd=None, db_no_pass=False):
 
     print("\n\nRegistering user {} to database server on {}:{}..."
           .format(reg_name, server_address, server_port))
 
-    ssh = get_ssh_connection(server_acc, server_address, server_port)
-    if not ssh:
-        print_error("Couldn't connect to database server, exit.")
-        sys.exit(1)
-
-    ctr = 0
-    while True:
-        ctr += 1
+    def cmdfnc(*args, **kwargs):
         username = db_def_user
         password = db_def_passwd
-
         if username is None:
             print("Enter you credentials to database on server {}".format(server_address))
             username = input("Username (empty for {}): ".format(db_def_user))
@@ -177,15 +180,33 @@ def register_db_user(server_acc, server_address, server_port,
             password = getpass("MySQL Password (empty for none): ")
 
         command = get_db_reg_command(username, password, db_name, reg_name, reg_address, reg_pwd,
-                                     priv_select, priv_insert, priv_update, priv_delete)
+                                     priv_select, priv_insert, priv_update, priv_delete, priv_create,
+                                     priv_alter, priv_index)
+        return command
 
-        exit_code, stdout, stderr = exec_on_ssh(ssh, command)
+    return db_server_cmd(server_acc, server_address, server_port, command_fnc=cmdfnc)
+
+
+def db_server_cmd(server_acc, server_address, server_port, command=None, command_fnc=None):
+    ssh = get_ssh_connection(server_acc, server_address, server_port)
+    if not ssh:
+        print_error("Couldn't connect to database server, exit.")
+        sys.exit(1)
+
+    ctr = 0
+    while True:
+        ctr += 1
+        curcmd = command
+        if curcmd is None:
+            curcmd = command_fnc(ctr)
+
+        exit_code, stdout, stderr = exec_on_ssh(ssh, curcmd)
         if exit_code != 0:
             print("Command exit code: {}".format(exit_code))
             for e in stderr:
                 print(e)
 
-            opt = input("An error occurred during registration. Do you want to retry? (Y/N): ")
+            opt = input("An error occurred during SQL command eval. Do you want to retry? (Y/N): ")
             if opt == "Y" or opt == "y":
                 continue
             else:

@@ -4,6 +4,36 @@ Randomness testing toolkit runner and deployment scripts.
 
 ## Build chapters
 
+## Docker all-in-one
+
+```bash
+export TMP_RES_PATH="/tmp/rtt/"
+export DEPLOYMENT_REPO_PATH="/path/to/this/deployment/repository"
+mkdir -p $TMP_RES_PATH
+DOCKER_ID=$(docker run -idt \
+    -v "$TMP_RES_PATH":"/result" \
+    -v "$DEPLOYMENT_REPO_PATH":"/rtt-deployment" \
+    -p 8000:80 -p 33060:3306 -p 32022:22 \
+    -w "/rtt-deployment" \
+    --cap-add SYS_PTRACE --cap-add sys_admin --security-opt seccomp:unconfined \
+    debian:9)
+
+docker exec $DOCKER_ID apt-get update -qq 2>/dev/null >/dev/null
+docker exec $DOCKER_ID apt-get install python3-pip -qq --yes 
+docker exec $DOCKER_ID python3 deploy_database.py --config deployment_settings_local.ini --docker
+docker exec $DOCKER_ID python3 deploy_storage.py --config deployment_settings_local.ini --docker --local-db
+docker exec $DOCKER_ID python3 deploy_frontend.py --config deployment_settings_local.ini --docker --local-db --no-chroot --no-ssh-server --ph4
+docker exec $DOCKER_ID python3 deploy_web.py --config deployment_settings_local.ini --docker --local-db --ph4 
+docker exec $DOCKER_ID python3 deploy_backend.py 1  --config deployment_settings_local.ini --docker --local-db 
+
+# To get shell:
+docker exec -it $DOCKER_ID /bin/bash
+
+# Create django user
+cd /home/RTTWebInterface
+./RTTWebInterfaceEnv/bin/python manage.py createsuperuser
+```
+
 ### Massive deployment
 
 Increase system limits for TCP connections, max user connections, etc
@@ -224,7 +254,7 @@ export DEPLOY_PATH="/path/from/deployment_settings.ini"
 # export DEPLOY_PATH="/storage/brno3-cerit/home/ph4r05/rtt_worker"
 
 export DEPLOYMENT_REPO_PATH="/path/to/this/repository"
-mkdir -p /tmp/rtt/result
+mkdir -p $TMP_RES_PATH
 DOCKER_ID=$(docker run -idt \
     -v "$TMP_RES_PATH":"/result" \
     -v "$DEPLOYMENT_REPO_PATH":"/rtt-deployment" \

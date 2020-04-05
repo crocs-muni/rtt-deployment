@@ -71,7 +71,10 @@ def main():
         ])
 
         python_packages = [
-            "django", "pyinstaller", "filelock", "jsonpath-ng", "booltest", "booltest-rtt"
+            "wheel", "django==2.0.8", "django-bootstrap3", "django-bootstrap-form", "django-datetime-widget",
+            "mysqlclient", "sarge", "requests", "shellescape", "coloredlogs", "filelock",
+            "configparser", "cryptography",
+            "pyinstaller", "filelock", "jsonpath-ng", "booltest", "booltest-rtt"
         ]
 
         install_python_pkg("pip", no_cache=False)
@@ -109,7 +112,7 @@ def main():
         # Credentials
         from common.rtt_registration import register_db_user
         from common.rtt_registration import add_authorized_key_to_server
-        from common.rtt_registration import get_db_reg_command
+        from common.rtt_registration import db_server_cmd, get_db_command
 
         credsdir = os.path.join(dst_dir, RTTWeb.RTT_WEB_CREDENTIALS)
         if os.path.exists(credsdir):
@@ -122,6 +125,13 @@ def main():
             fh.write(sec_key)
         chmod_chown(sec_file, 0o640, own=wusr, grp=wgrp)
 
+        # Create database
+        db_def_passwd = get_mysql_password_args(args)
+        print("Creating Web database")
+        create_cmd = get_db_command(Database.MYSQL_ROOT_USERNAME, db_def_passwd,
+                                    '"CREATE DATABASE %s"' % RTTWeb.MYSQL_DB)
+        db_server_cmd(Database.ssh_root_user, Database.address, Database.ssh_port, command=create_cmd)
+
         # Register user for results preview
         cred_mysql_db_password = get_rnd_pwd()
         creds_db_path = os.path.join(credsdir, RTTWeb.MYSQL_RTT_CONFIG)
@@ -131,7 +141,6 @@ def main():
         chmod_chown(creds_db_path, 0o640, own=wusr, grp=wgrp)
         chmod_chown(creds_db_path2, 0o640, own=wusr, grp=wgrp)
 
-        db_def_passwd = get_mysql_password_args(args)
         db_addr_from = RTTWeb.address if not args.docker else '%'
         register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                          RTTWeb.MYSQL_RTT_USER, cred_mysql_db_password, db_addr_from,
@@ -141,14 +150,15 @@ def main():
 
         # Register web user
         creds_mysql_web_pass = get_rnd_pwd()
-        creds_db_path = os.path.join(credsdir, RTTWeb.WEB_DB_CONFIG)
-        write_db_credentials_web(RTTWeb.MYSQL_USER, creds_mysql_web_pass, RTTWeb.MYSQL_DB, creds_db_path,
+        creds_db_path_web = os.path.join(credsdir, RTTWeb.WEB_DB_CONFIG)
+        write_db_credentials_web(RTTWeb.MYSQL_USER, creds_mysql_web_pass, RTTWeb.MYSQL_DB, creds_db_path_web,
                                  address=Database.address)
-        chmod_chown(creds_db_path, 0o640, own=wusr, grp=wgrp)
+        chmod_chown(creds_db_path_web, 0o640, own=wusr, grp=wgrp)
         register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                          RTTWeb.MYSQL_USER, creds_mysql_web_pass, db_addr_from,
                          Database.MYSQL_ROOT_USERNAME, RTTWeb.MYSQL_DB,
                          priv_select=True, priv_insert=True, priv_update=True, priv_delete=True,
+                         priv_create=True, priv_alter=True, priv_index=True,
                          db_def_passwd=db_def_passwd, db_no_pass=args.local_db)
 
         # Register machine to storage
@@ -204,11 +214,15 @@ def main():
         submit_exp_base_name = os.path.splitext(Frontend.SUBMIT_EXPERIMENT_SCRIPT)[0]
         exec_sys_call_check("pyinstaller -F {}".format(Frontend.SUBMIT_EXPERIMENT_SCRIPT))
         shutil.move("dist/{}".format(submit_exp_base_name), Frontend.SUBMIT_EXPERIMENT_BINARY)
-        chmod_chown(Frontend.SUBMIT_EXPERIMENT_BINARY, 0o2775, own=wusr, grp=wgrp)
+        chmod_chown(Frontend.SUBMIT_EXPERIMENT_BINARY, 0o6775, own=wusr, grp=wgrp)
         shutil.rmtree("dist")
         shutil.rmtree("build")
         shutil.rmtree("__pycache__")
         os.remove("{}.spec".format(submit_exp_base_name))
+
+        # Migrate
+        python_venv = os.path.abspath(os.path.join(RTTWeb.RTT_WEB_PATH, RTTWeb.RTT_WEB_ENV, 'bin', 'python3'))
+        exec_sys_call_check("%s manage.py migrate" % python_venv)
 
         # Chown all
         print("Chmoding...")
