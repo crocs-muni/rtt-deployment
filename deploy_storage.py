@@ -61,7 +61,6 @@ def main():
             Storage.CREDENTIALS_DIR
         })
         check_files_exists({
-            Storage.ssh_config,
             CommonConst.STORAGE_CLEAN_CACHE
         })
     except AssertionError as e:

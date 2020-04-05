@@ -43,7 +43,7 @@ def main():
                         help='Path to deployment_settings.ini')
     args = parser.parse_args()
     deploy_cfg_file = args.config
-    if args.no_choor:
+    if args.no_chroot:
         args.no_ssh_server = True
 
     deploy_cfg = configparser.ConfigParser()
