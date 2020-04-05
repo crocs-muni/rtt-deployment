@@ -86,7 +86,7 @@ def main():
         Database.ssh_root_user = get_no_empty(deploy_cfg, "Database", "SSH-Root-User")
 
         Storage.address_private = get_no_empty(deploy_cfg, "Storage", "IPv4-Address")
-        Storage.address_public = get_no_empty(deploy_cfg, "Storage", "IPv4-Address-Public")
+        Storage.address_public = deploy_cfg.get("Storage", "IPv4-Address-Public") or Storage.address_private
         Storage.address = Storage.address_public if args.public_storage else Storage.address_private
         Storage.ssh_root_user = get_no_empty(deploy_cfg, "Storage", "SSH-Root-User")
         Storage.acc_chroot = get_no_empty(deploy_cfg, "Storage", "Storage-Chroot")
@@ -154,6 +154,7 @@ def main():
         join(Backend.rtt_files_dir, Backend.CLEAN_CACHE_SCRIPT)
     Backend.rtt_binary_path = \
         join(Backend.rtt_exec_dir, os.path.basename(Backend.RTT_BINARY_PATH))
+    Backend.cryptostreams_binary_dir = Backend.rtt_exec_dir
     Backend.mysql_cred_ini_path = \
         join(Backend.credentials_dir, Backend.MYSQL_CREDENTIALS_FILE_INI)
     Backend.mysql_cred_json_path = \
@@ -268,6 +269,11 @@ def main():
         exec_sys_call_check("make -j2", env=rtt_env, acc_codes=[0, 1, 2])
         recursive_chmod_chown(Backend.rand_test_tool_src_dir, mod_f=0o660, mod_d=0o2770, grp=wgrp)
         chmod_chown(Backend.RTT_BINARY_PATH, 0o770)
+
+        # Build cryptostreams
+        cryptostreams_complete_deploy(ph4=args.ph4_rtt,
+                                      res_bin_dir=Backend.cryptostreams_binary_dir,
+                                      src_dir=Backend.rtt_files_dir)
 
         # Build finished, go into original directory
         os.chdir(current_dir)

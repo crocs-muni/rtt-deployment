@@ -14,6 +14,7 @@ class CommonConst(object):
     CONF_MYSQL = "/root/.my.cnf"
     USR_SRC = "/usr/src"
 
+    CRYPTOSTREAMS_SRC_DIR = 'crypto-streams'
     CRYPTOSTREAMS_REPO = 'https://github.com/crocs-muni/CryptoStreams.git'
     CRYPTOSTREAMS_REPO_BRANCH = 'master'
     CRYPTOSTREAMS_REPO_PH4 = 'https://github.com/ph4r05/eacirc-streams.git'

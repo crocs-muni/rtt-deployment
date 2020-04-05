@@ -336,22 +336,23 @@ def cryptostreams_link(crypto_dir, crypto_bin, ph4=False, res_bin_dir='/usr/bin'
     for lnk in lnks:
         try_fnc(lambda: os.unlink(lnk))
         os.symlink(cpath, lnk)
+    return [cpath, *lnks]
 
 
-def cryptostreams_complete_deploy(ph4=False, res_bin_dir='/usr/bin'):
+def cryptostreams_complete_deploy(ph4=False, res_bin_dir='/usr/bin', src_dir=CommonConst.USR_SRC,
+                                  crypto_dir=CommonConst.CRYPTOSTREAMS_SRC_DIR):
     install_debian_pkgs(["cmake"])
     current_dir = os.path.abspath(os.path.curdir)
     try:
-        os.chdir(CommonConst.USR_SRC)
-        crypto_dir = 'crypto-streams'
+        os.chdir(src_dir)
         crypto_repo, crypto_branch = cryptostreams_get_repo(ph4)
-
         if os.path.exists(crypto_dir):
             shutil.rmtree(crypto_dir)
 
         cryptostreams_clone(crypto_repo, crypto_branch, crypto_dir)
         cbin = cryptostreams_build(crypto_dir)
-        cryptostreams_link(crypto_dir, cbin, ph4=ph4, res_bin_dir=res_bin_dir)
+        return cryptostreams_link(crypto_dir, cbin, ph4=ph4, res_bin_dir=res_bin_dir)
+
     finally:
         os.chdir(current_dir)
 
