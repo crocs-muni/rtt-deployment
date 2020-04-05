@@ -19,6 +19,8 @@ def main():
     parser = argparse.ArgumentParser(description='Worker deployment')
     parser.add_argument('--metacentrum', dest='metacentrum', action='store_const', const=True, default=False,
                         help='Metacetrum deployment')
+    parser.add_argument('--docker', dest='docker', action='store_const', const=True, default=False,
+                        help='Docker deployment')
     parser.add_argument('--db-passwd', dest='db_passwd',
                         help='DB password to use, if given, skips DB registration')
     parser.add_argument('--ssh-passphrase', dest='ssh_passphrase',
@@ -37,16 +39,23 @@ def main():
                         help='Use Ph4r05 fork of RTT - required for metacentrum')
     parser.add_argument('--pub-storage', dest='public_storage', action='store_const', const=True, default=False,
                         help='Use public storage address')
+    parser.add_argument('--local-db', dest='local_db', action='store_const', const=True, default=False,
+                        help='DB server is on the same machine')
+    parser.add_argument('--mysql-pass', dest='mysql_pass', action='store_const', const=True, default=False,
+                        help='DB password to use')
+    parser.add_argument('--mysql-pass-file', dest='mysql_pass_file', action='store_const', const=True, default=False,
+                        help='DB password file to use')
     parser.add_argument('--config', dest='config', default='deployment_settings.ini',
                         help='Path to deployment_settings.ini')
     parser.add_argument('backend_id', default=None,
                         help='Backend ID to deploy')
     args = parser.parse_args()
+    deploy_cfg_file = args.config
+
     wbare = not args.metacentrum
-    if args.metacentrum:
+    if args.metacentrum or args.docker:
         args.ph4_rtt = True
         args.public_storage = True
-    deploy_cfg_file = args.config
 
     # Get path to main config from console
     if not args.backend_id:
@@ -156,6 +165,9 @@ def main():
     wgrp = Backend.RTT_ADMIN_GROUP
 
     try:
+        # Install essential packages
+        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync", "git"])
+
         # Adding rtt-admin group that is intended to manage
         # directories and files related to rtt without root access
         exec_sys_call_check("groupadd {}".format(Backend.RTT_ADMIN_GROUP), acc_codes=[0, 9])
@@ -189,31 +201,18 @@ def main():
         recursive_chmod_chown(Backend.common_files_dir, mod_f=0o660, mod_d=0o2770, grp=wgrp)
 
         # Install packages
-        install_debian_pkg("wget")
-        install_debian_pkg("rsync")
-        install_debian_pkg("unzip")
-        install_debian_pkg("sudo")
-        install_debian_pkg("acl")
-        install_debian_pkg("git")
         install_debian_pkg("mailutils")
         if not args.no_email:
             install_debian_pkg("postfix")
 
         install_debian_pkg("libmysqlcppconn-dev")
         install_debian_pkg_at_least_one(["default-libmysqlclient-dev", "libmysqlclient-dev"])
-        install_debian_pkg("python3-pip")
-        install_debian_pkg("python3-cryptography")
-        install_debian_pkg("python3-paramiko")
+        install_debian_pkgs(["python3-pip", "python3-cryptography", "python3-paramiko"])
 
-        install_python_pkg("mysqlclient")
-        install_python_pkg("sarge")
-        install_python_pkg("requests")
-        install_python_pkg("shellescape")
-        install_python_pkg("coloredlogs")
-        install_python_pkg("filelock")
-        install_python_pkg("sshtunnel")
-        install_python_pkg("booltest")
-        install_python_pkg("booltest-rtt")
+        install_python_pkgs([
+            "mysqlclient", "sarge", "requests", "shellescape", "coloredlogs", "filelock",
+            "sshtunnel", "booltest", "booltest-rtt"
+        ])
 
         # Get current versions of needed tools from git
         # Statistical batteries
@@ -442,11 +441,22 @@ def main():
 
         post_install_info = []
         db_addr_from = Backend.address if wbare else '%'
+
         if not args.no_db_reg:
+            db_def_passwd = None
+            if args.mysql_pass_file:
+                with open(args.mysql_pass_file, 'r') as fh:
+                    db_def_passwd = fh.read().strip()
+
+            if args.mysql_pass is not None:
+                db_def_passwd = args.mysql_pass
+
             register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                              Backend.MYSQL_BACKEND_USER, db_pwd, db_addr_from,
                              Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
-                             priv_select=True, priv_insert=True, priv_update=True)
+                             priv_select=True, priv_insert=True, priv_update=True,
+                             db_def_passwd=db_def_passwd, db_no_pass=args.local_db)
+
         else:
             sql = get_db_reg_command(username=Database.MYSQL_ROOT_USERNAME, password=None,
                                      db_name=Database.MYSQL_DB_NAME, reg_name=Backend.MYSQL_BACKEND_USER,
@@ -489,6 +499,7 @@ def main():
 
         # Add cron jobs for cache cleaning and job running script
         if not args.no_cron:
+            install_debian_pkg("cron")
             add_cron_job(Backend.clean_cache_path, Backend.config_ini_path,
                          join(Backend.rtt_files_dir, Backend.CLEAN_CACHE_LOG))
 
