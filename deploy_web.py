@@ -95,16 +95,16 @@ def main():
         recursive_chmod_chown('/var/www/html/.well-known', 0o660, 0o771, wusr, wgrp)
 
         dst_dir = RTTWeb.RTT_WEB_PATH
-        # if os.path.exists(dst_dir):
-        #     shutil.rmtree(dst_dir)
-        #
-        # rttweb_repo = RTTWeb.WEB_REPO_PH4 if args.ph4 else RTTWeb.WEB_REPO
-        # exec_sys_call_check("git clone --recursive %s %s" % (rttweb_repo, dst_dir))
+        if os.path.exists(dst_dir):
+            shutil.rmtree(dst_dir)
+
+        rttweb_repo = RTTWeb.WEB_REPO_PH4 if args.ph4 else RTTWeb.WEB_REPO
+        exec_sys_call_check("git clone --recursive %s %s" % (rttweb_repo, dst_dir))
         os.chdir(dst_dir)
 
-        # exec_sys_call_check("python3 -m venv %s" % RTTWeb.RTT_WEB_ENV)
-        # pip3_venv = os.path.abspath(os.path.join(RTTWeb.RTT_WEB_ENV, 'bin', 'pip3'))
-        # install_python_pkgs(python_packages, pip3=pip3_venv)
+        exec_sys_call_check("python3 -m venv %s" % RTTWeb.RTT_WEB_ENV)
+        pip3_venv = os.path.abspath(os.path.join(RTTWeb.RTT_WEB_ENV, 'bin', 'pip3'))
+        install_python_pkgs(python_packages, pip3=pip3_venv)
 
         # Credentials
         from common.rtt_registration import register_db_user
