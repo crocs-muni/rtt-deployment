@@ -221,6 +221,7 @@ def main():
         os.remove("{}.spec".format(submit_exp_base_name))
 
         # Migrate
+        os.chdir(RTTWeb.RTT_WEB_PATH)
         python_venv = os.path.abspath(os.path.join(RTTWeb.RTT_WEB_PATH, RTTWeb.RTT_WEB_ENV, 'bin', 'python3'))
         exec_sys_call_check("%s manage.py migrate" % python_venv)
 
