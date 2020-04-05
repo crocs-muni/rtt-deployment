@@ -3,6 +3,9 @@
 import paramiko
 import os
 import sys
+import io
+import subprocess
+import shlex
 from common.clilogging import *
 from getpass import getpass
 
@@ -15,7 +18,45 @@ file.
 """
 
 
+class LocalConnection:
+    def __init__(self):
+        pass
+
+    def close(self):
+        pass
+
+    def exec_command(self, command, input=None):
+        p = subprocess.Popen(shlex.split(command), bufsize=4096,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate(input)
+        return p.returncode, stdout, stderr
+
+
+def exec_on_ssh(ssh, command, input=None):
+    if isinstance(ssh, LocalConnection):
+        exit_code, stdout, stderr = ssh.exec_command(command, input.encode("utf8") if input else None)
+        return exit_code, stdout.decode("utf8").split("\n"), stderr.decode("utf8").split("\n")
+
+    else:
+        stdin, stdout, stderr = ssh.exec_command(command)
+        if input:
+            stdin.write(input)
+            stdin.flush()
+
+        exit_code = stdout.channel.recv_exit_status()
+        return exit_code, stdout.readlines(), stderr.readlines()
+
+
+def is_local_addr(addr):
+    return addr in ['127.0.0.1', '::1', None, '']
+
+
 def get_ssh_connection(def_username, address, port):
+    if is_local_addr(address):
+        return LocalConnection()
+
     while True:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -91,7 +132,10 @@ def get_db_reg_command(username, password, db_name, reg_name, reg_address, reg_p
     if reg_rights.endswith(','):
         reg_rights = reg_rights[:-1]
 
-    creds = (' -u %s %s ' % (username, password)) if (username and password) else ''
+    creds = (' -u %s' % (username,)) if username else ''
+    if password:
+        creds += ' -p %s' % password
+
     cmd_host = (' -h %s' % db_host) if db_host else ''
     cmd_port = (' -P %s' % db_port) if db_port else ''
 
@@ -106,7 +150,8 @@ def get_db_reg_command(username, password, db_name, reg_name, reg_address, reg_p
 def register_db_user(server_acc, server_address, server_port,
                      reg_name, reg_pwd, reg_address, db_def_user, db_name,
                      priv_select=False, priv_insert=False,
-                     priv_update=False, priv_delete=False):
+                     priv_update=False, priv_delete=False,
+                     db_def_passwd=None, db_no_pass=False):
 
     print("\n\nRegistering user {} to database server on {}:{}..."
           .format(reg_name, server_address, server_port))
@@ -116,25 +161,28 @@ def register_db_user(server_acc, server_address, server_port,
         print_error("Couldn't connect to database server, exit.")
         sys.exit(1)
 
+    ctr = 0
     while True:
-        print("Enter you credentials to database on server {}".format(server_address))
-        username = input("Username (empty for {}): ".format(db_def_user))
-        if len(username) == 0:
-            username = db_def_user
+        ctr += 1
+        username = db_def_user
+        password = db_def_passwd
 
-        password = getpass("Password (empty for none): ")
-        if len(password) > 0:
-            password = "-p" + password
+        if username is None:
+            print("Enter you credentials to database on server {}".format(server_address))
+            username = input("Username (empty for {}): ".format(db_def_user))
+            if len(username) == 0:
+                username = db_def_user
+
+        if password is None and not db_no_pass:
+            password = getpass("MySQL Password (empty for none): ")
 
         command = get_db_reg_command(username, password, db_name, reg_name, reg_address, reg_pwd,
                                      priv_select, priv_insert, priv_update, priv_delete)
 
-        stdin, stdout, stderr = ssh.exec_command(command)
-
-        exit_code = stdout.channel.recv_exit_status()
+        exit_code, stdout, stderr = exec_on_ssh(ssh, command)
         if exit_code != 0:
             print("Command exit code: {}".format(exit_code))
-            for e in stderr.readlines():
+            for e in stderr:
                 print(e)
 
             opt = input("An error occurred during registration. Do you want to retry? (Y/N): ")
@@ -153,7 +201,7 @@ def register_db_user(server_acc, server_address, server_port,
 
 
 def add_authorized_key_to_server(server_acc, server_address, server_port,
-                                 pubkey_str, authorized_keys_path):
+                                 pubkey_str, authorized_keys_path, password=None):
     print("\n\nRegistering public key to storage server {}".format(server_address))
 
     ssh = get_ssh_connection(server_acc, server_address, server_port)
@@ -164,15 +212,15 @@ def add_authorized_key_to_server(server_acc, server_address, server_port,
     command = "sudo -S su -c 'printf \"{0}\n\" >> {1}'".format(pubkey_str, authorized_keys_path)
 
     while True:
-        password = getpass("Enter sudo password (empty for none): ")
-        stdin, stdout, stderr = ssh.exec_command(command)
-        stdin.write(password + "\n\n\n\n")
-        stdin.flush()
+        if not is_local_addr(server_address) and not password:
+            password = getpass("Enter sudo password (empty for none): ")
 
-        exit_code = stdout.channel.recv_exit_status()
+        input = password + "\n\n\n\n" if password else None
+        exit_code, stdout, stderr = exec_on_ssh(ssh, command, input)
+
         if exit_code != 0:
             print("Command exit code: {}".format(exit_code))
-            for e in stderr.readlines():
+            for e in stderr:
                 print(e)
 
             opt = input("An error occurred during registration. Do you want to retry? (Y/N): ")
