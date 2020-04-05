@@ -219,13 +219,14 @@ Configuration in `rtt-settings.json`:
 ### Metacentrum - prepare worker skeleton
 
 ```
+export TMP_RES_PATH="/tmp/rtt/result"
 export DEPLOY_PATH="/path/from/deployment_settings.ini"
 # export DEPLOY_PATH="/storage/brno3-cerit/home/ph4r05/rtt_worker"
 
 export DEPLOYMENT_REPO_PATH="/path/to/this/repository"
 mkdir -p /tmp/rtt/result
 DOCKER_ID=$(docker run -idt \
-    -v "/tmp/rtt/result":"/result" \
+    -v "$TMP_RES_PATH":"/result" \
     -v "$DEPLOYMENT_REPO_PATH":"/rtt-deployment" \
     -w "/rtt-deployment" --cap-add SYS_PTRACE --cap-add sys_admin \
     --security-opt seccomp:unconfined --network=host debian:9)
@@ -237,4 +238,7 @@ docker exec $DOCKER_ID rsync -av $DEPLOY_PATH/ /result/
 
 # To get shell:
 docker exec -it $DOCKER_ID /bin/bash
+
+# Review configs:
+find /storage/brno3-cerit/home/ph4r05/rtt_worker/ -type f \( -name '*.ini' -o -name '*.json' -o -name '*.cfg' \) 
 ```

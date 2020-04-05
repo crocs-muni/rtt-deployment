@@ -35,6 +35,8 @@ def main():
                         help='Skip cron setup')
     parser.add_argument('--ph4-rtt', dest='ph4_rtt', action='store_const', const=True, default=False,
                         help='Use Ph4r05 fork of RTT - required for metacentrum')
+    parser.add_argument('--pub-storage', dest='public_storage', action='store_const', const=True, default=False,
+                        help='Use public storage address')
     parser.add_argument('--config', dest='config', default='deployment_settings.ini',
                         help='Path to deployment_settings.ini')
     parser.add_argument('backend_id', default=None,
@@ -43,6 +45,7 @@ def main():
     wbare = not args.metacentrum
     if args.metacentrum:
         args.ph4_rtt = True
+        args.public_storage = True
     deploy_cfg_file = args.config
 
     # Get path to main config from console
@@ -73,7 +76,9 @@ def main():
         Database.ssh_port = get_no_empty(deploy_cfg, "Database", "SSH-Port")
         Database.ssh_root_user = get_no_empty(deploy_cfg, "Database", "SSH-Root-User")
 
-        Storage.address = get_no_empty(deploy_cfg, "Storage", "IPv4-Address")
+        Storage.address_private = get_no_empty(deploy_cfg, "Storage", "IPv4-Address")
+        Storage.address_public = get_no_empty(deploy_cfg, "Storage", "IPv4-Address-Public")
+        Storage.address = Storage.address_public if args.public_storage else Storage.address_private
         Storage.ssh_root_user = get_no_empty(deploy_cfg, "Storage", "SSH-Root-User")
         Storage.acc_chroot = get_no_empty(deploy_cfg, "Storage", "Storage-Chroot")
         Storage.storage_user = get_no_empty(deploy_cfg, "Storage", "Storage-User")
