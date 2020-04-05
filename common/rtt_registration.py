@@ -215,8 +215,8 @@ def add_authorized_key_to_server(server_acc, server_address, server_port,
         if not is_local_addr(server_address) and not password:
             password = getpass("Enter sudo password (empty for none): ")
 
-        input = password + "\n\n\n\n" if password else None
-        exit_code, stdout, stderr = exec_on_ssh(ssh, command, input)
+        inpt = password + "\n\n\n\n" if password else None
+        exit_code, stdout, stderr = exec_on_ssh(ssh, command, inpt)
 
         if exit_code != 0:
             print("Command exit code: {}".format(exit_code))
