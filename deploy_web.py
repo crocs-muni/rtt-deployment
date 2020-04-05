@@ -74,7 +74,7 @@ def main():
             "wheel", "django==2.0.8", "django-bootstrap3", "django-bootstrap-form", "django-datetime-widget",
             "mysqlclient", "sarge", "requests", "shellescape", "coloredlogs", "filelock",
             "configparser", "cryptography",
-            "pyinstaller", "filelock", "jsonpath-ng", "booltest", "booltest-rtt"
+            "pyinstaller", "filelock", "jsonpath-ng"
         ]
 
         install_python_pkg("pip", no_cache=False)
