@@ -2,6 +2,7 @@
 
 import configparser
 import argparse
+import traceback
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
 
@@ -12,6 +13,12 @@ from common.rtt_constants import *
 
 def main():
     parser = argparse.ArgumentParser(description='Storage deployment')
+    parser.add_argument('--local-db', dest='local_db', action='store_const', const=True, default=False,
+                        help='DB server is on the same machine')
+    parser.add_argument('--mysql-pass', dest='mysql_pass', action='store_const', const=True, default=False,
+                        help='DB password to use')
+    parser.add_argument('--mysql-pass-file', dest='mysql_pass_file', action='store_const', const=True, default=False,
+                        help='DB password file to use')
     parser.add_argument('--config', dest='config', default='deployment_settings.ini',
                         help='Path to deployment_settings.ini')
     args = parser.parse_args()
@@ -90,6 +97,9 @@ def main():
         os.path.join(Storage.rtt_credentials_dir, Storage.MYSQL_CREDENTIALS_FILE)
 
     try:
+        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync", "cron"])
+        install_debian_pkg("openssh-server")
+
         # Creating sftp jail for account
         # Adding rtt-admin group that is intended to manage
         # directories and files related to rtt without root access
@@ -117,7 +127,7 @@ def main():
         with open(Storage.ssh_config, "a") as f:
             f.write(sshd_config_append)
 
-        exec_sys_call_check("service sshd restart")
+        exec_sys_call_check("service ssh restart")
 
         # Creating sftp jail for accessing storage
         create_dir(Storage.acc_chroot, 0o755)
@@ -179,20 +189,28 @@ def main():
             cred_cfg.write(f)
 
         # Installing required packages
-        install_debian_pkg("libmysqlclient-dev")
-        install_debian_pkg("python3-pip")
-        install_debian_pkg("python3-cryptography")
-        install_debian_pkg("python3-paramiko")
+        install_debian_pkg("libmysqlcppconn-dev")
+        install_debian_pkg_at_least_one(["default-libmysqlclient-dev", "libmysqlclient-dev"])
+        install_debian_pkgs(["python3-pip", "python3-cryptography", "python3-paramiko"])
 
         install_python_pkg("mysqlclient")
 
         # This can be done only after installing cryptography and paramiko
         from common.rtt_registration import register_db_user
 
+        db_def_passwd = None
+        if args.mysql_pass_file:
+            with open(args.mysql_pass_file, 'r') as fh:
+                db_def_passwd = fh.read().strip()
+
+        if args.mysql_pass is not None:
+            db_def_passwd = args.mysql_pass
+
         register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                          Storage.MYSQL_STORAGE_USER, cred_db_password, Storage.address,
                          Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
-                         priv_select=True)
+                         priv_select=True,
+                         db_def_passwd=db_def_passwd, db_no_pass=args.local_db)
 
         # Adding new job to cron - cache cleaning script
         add_cron_job(Storage.rtt_file_clean_cache,
@@ -203,6 +221,7 @@ def main():
 
     except BaseException as e:
         print_error("{}. Fix error and run the script again.".format(e))
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
