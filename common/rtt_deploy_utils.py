@@ -9,6 +9,13 @@ from subprocess import call
 from common.clilogging import *
 
 
+def try_fnc(fnc):
+    try:
+        return fnc()
+    except:
+        pass
+
+
 def check_paths_abs(paths):
     for p in paths:
         if not os.path.isabs(p):
@@ -53,7 +60,7 @@ def add_cron_job(script_path, ini_file_path, log_file_path):
 
 
 def get_rnd_pwd(password_len=30):
-    spec_chars = "!?$&@+<>^"
+    spec_chars = "-_.!?+<>^="
     characters = string.ascii_letters + string.digits + spec_chars
     while True:
         rval = "".join(random.SystemRandom().choice(characters) for _ in range(password_len))
@@ -61,10 +68,52 @@ def get_rnd_pwd(password_len=30):
             return rval
 
 
+def create_file_wperms(fpath=None, mask=0o600, mode='w'):
+    # The default umask is 0o22 which turns off write permission of group and others
+    prev = os.umask(0)
+    try:
+        return open(os.open(fpath, os.O_CREAT | os.O_RDWR | os.O_EXCL, mask), mode)
+    finally:
+        os.umask(prev)
+
+
+def backup_file(fpath, remove=False):
+    if not os.path.exists(fpath):
+        return
+
+    fdir = os.path.dirname(fpath)
+    fname = os.path.basename(fpath)
+    stat = os.stat(fpath)
+    mask = stat.st_mode & 0o777
+
+    ctr = 0
+    while True:
+        ctr += 1
+        cand = os.path.join(fdir, '%s.%03d' % (fname, ctr))
+        try:
+            with create_file_wperms(cand, mask) as fdst, open(fpath, 'r') as fsrc:
+                shutil.copyfileobj(fsrc, fdst)
+            os.chown(cand, uid=stat.st_uid, gid=stat.st_gid)
+            if remove:
+                os.unlink(fpath)
+            return cand
+
+        except Exception as e:
+            if ctr > 10000:
+                raise EnvironmentError("Could not create file: %s" % (e,))
+            continue
+
+
 def install_debian_pkg(name):
     rval = call(["apt-get", "install", name, "--yes", "--force-yes"])
     if rval != 0:
         raise EnvironmentError("Installing package {}, error code: {}".format(name, rval))
+
+
+def install_debian_pkgs(names):
+    rval = call(["apt-get", "install", *names, "--yes", "--force-yes"])
+    if rval != 0:
+        raise EnvironmentError("Installing packages {}, error code: {}".format(names, rval))
 
 
 def install_debian_pkg_at_least_one(names):
@@ -81,6 +130,12 @@ def install_python_pkg(name):
     rval = call(["pip3", "install", "-U", "--no-cache", name])
     if rval != 0:
         raise EnvironmentError("Installing package {}, error code: {}".format(name, rval))
+
+
+def install_python_pkgs(names):
+    rval = call(["pip3", "install", "-U", "--no-cache", *names])
+    if rval != 0:
+        raise EnvironmentError("Installing package {}, error code: {}".format(names, rval))
 
 
 def exec_sys_call_check(command, stdin=None, stdout=None, acc_codes=[0], env=None, shell=False):

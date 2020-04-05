@@ -10,6 +10,8 @@ class CommonConst(object):
     FRONTEND_ADD_USER_SCRIPT = "files/add_rtt_user.py"
     BACKEND_RUN_JOBS_SCRIPT = "files/run_jobs.py"
     BACKEND_CLEAN_CACHE_SCRIPT = "files/clean_cache.py"
+    PASSWD_MYSQL = "/root/mysql-pass.txt"
+    CONF_MYSQL = "/root/.my.cnf"
 
 
 class Database(object):
