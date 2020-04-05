@@ -5,6 +5,7 @@ import sys
 import glob
 import shutil
 import shlex
+import subprocess
 from subprocess import call, Popen, PIPE
 from common.clilogging import *
 from common.rtt_constants import *
@@ -110,6 +111,10 @@ def backup_file(fpath, remove=False):
             continue
 
 
+def service_enable(svc, enable=True):
+    return exec_sys_call_check("systemctl %s %s" % (svc, "enable" if enable else "disable"))
+
+
 def install_debian_pkg(name):
     rval = call(["apt-get", "install", name, "--yes", "--force-yes"])
     if rval != 0:
@@ -132,15 +137,15 @@ def install_debian_pkg_at_least_one(names):
     raise EnvironmentError("Installing packages {} failed".format(names))
 
 
-def install_python_pkg(name, no_cache=True):
+def install_python_pkg(name, no_cache=True, pip3="pip3"):
     cache = ['--no-cache'] if no_cache else []
-    rval = call(["pip3", "install", "-U", *cache, name])
+    rval = call([pip3, "install", "-U", *cache, name])
     if rval != 0:
         raise EnvironmentError("Installing package {}, error code: {}".format(name, rval))
 
 
-def install_python_pkgs(names):
-    rval = call(["pip3", "install", "-U", "--no-cache", *names])
+def install_python_pkgs(names, pip3="pip3"):
+    rval = call([pip3, "install", "-U", "--no-cache", *names])
     if rval != 0:
         raise EnvironmentError("Installing package {}, error code: {}".format(names, rval))
 
@@ -156,15 +161,16 @@ def exec_sys_call_check(command, stdin=None, stdout=None, acc_codes=[0], env=Non
                                .format(command, rval))
 
 
-def chmod_chown(path, mode, own="", grp=""):
+def chmod_chown(path, mode=None, own="", grp=""):
     chown_str = own
     if grp != "":
         chown_str += ":{}".format(grp)
 
     if chown_str != "":
         exec_sys_call_check("chown {} \'{}\'".format(chown_str, path))
-    
-    os.chmod(path, mode)
+
+    if mode is not None:
+        os.chmod(path, mode)
 
 
 def create_dir(path, mode, own="", grp=""):
@@ -179,7 +185,7 @@ def create_file(path, mode, own="", grp=""):
     chmod_chown(path, mode, own, grp)
 
 
-def recursive_chmod_chown(path, mod_f, mod_d, own="", grp=""):
+def recursive_chmod_chown(path, mod_f=None, mod_d=None, own="", grp=""):
     if os.path.isdir(path):
         chmod_chown(path, mod_d, own, grp)
     
@@ -261,17 +267,18 @@ def build_static_dieharder(bat_dir):
     exec_sys_call_check("make install")
 
 
-def submit_experiment_deploy(cdir):
+def submit_experiment_deploy(cdir=None):
     install_python_pkgs([
         "pyinstaller", "filelock", "jsonpath-ng", "booltest", "booltest-rtt"
     ])
     submit_experiment_build(cdir)
 
 
-def submit_experiment_build(cdir):
+def submit_experiment_build(cdir=None):
     current_dir = os.path.abspath(os.path.curdir)
     try:
-        os.chdir(cdir)
+        if cdir:
+            os.chdir(cdir)
         submit_exp_base_name = os.path.splitext(Frontend.SUBMIT_EXPERIMENT_SCRIPT)[0]
         exec_sys_call_check("pyinstaller -F {}".format(Frontend.SUBMIT_EXPERIMENT_SCRIPT))
         shutil.move("dist/{}".format(submit_exp_base_name),
@@ -356,3 +363,88 @@ def cryptostreams_complete_deploy(ph4=False, res_bin_dir='/usr/bin', src_dir=Com
     finally:
         os.chdir(current_dir)
 
+
+def set_cfg_value(key, value, cfg_path, sep="="):
+    sed_string = r"s_\({}\s*\){}\s*.*_\1= {}_".format(key, sep, value)
+    rval = subprocess.call(["sed", "-i", sed_string, cfg_path])
+    if rval != 0:
+        raise EnvironmentError("Executing sed command \'{}\', error code: {}"
+                               .format(sed_string, rval))
+
+
+def comment_cfg_line(line_content, cfg_path):
+    sed_string = r"s_\(.*{}.*\)_# \1_".format(line_content)
+    rval = subprocess.call(["sed", "-i", sed_string, cfg_path])
+    if rval != 0:
+        raise EnvironmentError("Executing sed command \'{}\', error code: {}"
+                               .format(sed_string, rval))
+
+
+def get_mysql_password_args(args=None):
+    if not args:
+        return None
+
+    db_def_passwd = None
+    if 'mysql_pass_file' in args and args.mysql_pass_file:
+        with open(args.mysql_pass_file, 'r') as fh:
+            db_def_passwd = fh.read().strip()
+
+    if 'mysql_pass' in args and args.mysql_pass is not None:
+        db_def_passwd = args.mysql_pass
+    return db_def_passwd
+
+
+def write_db_credentials(username, password, config_path):
+    import configparser
+    cred_mysql_db_cfg = configparser.ConfigParser()
+    cred_mysql_db_cfg.add_section("Credentials")
+    cred_mysql_db_cfg.set("Credentials", "Username", username)
+    cred_mysql_db_cfg.set("Credentials", "Password", password)
+    if config_path:
+        with open(config_path, "w") as f:
+            cred_mysql_db_cfg.write(f)
+    return cred_mysql_db_cfg
+
+
+def write_db_credentials_json(username, password, config_path):
+    import json
+    cred_mysql_db_json = {
+        "credentials": {
+            "username": username,
+            "password": password
+        }
+    }
+    if config_path:
+        with open(config_path, "w") as f:
+            json.dump(cred_mysql_db_json, f, indent=4)
+    return cred_mysql_db_json
+
+
+def write_ssh_credentials(username, password, keyfile, config_path):
+    import configparser
+    cred_store_ssh_cfg = configparser.ConfigParser()
+    cred_store_ssh_cfg.add_section("Credentials")
+    cred_store_ssh_cfg.set("Credentials", "Username", username)
+    cred_store_ssh_cfg.set("Credentials", "Private-key-file", keyfile)
+    cred_store_ssh_cfg.set("Credentials", "Private-key-password", password)
+
+    if config_path:
+        with open(config_path, "w") as f:
+            cred_store_ssh_cfg.write(f)
+    return cred_store_ssh_cfg
+
+
+def write_db_credentials_web(username, password, db_name, config_path, address='127.0.0.1', port='3306'):
+    import configparser
+    sec = 'MySQL-Database'
+    cred_mysql_db_cfg = configparser.ConfigParser()
+    cred_mysql_db_cfg.add_section(sec)
+    cred_mysql_db_cfg.set(sec, "Name", db_name)
+    cred_mysql_db_cfg.set(sec, "Address", address)
+    cred_mysql_db_cfg.set(sec, "Port", '%s' % port)
+    cred_mysql_db_cfg.set(sec, "Username", username)
+    cred_mysql_db_cfg.set(sec, "Password", password)
+    if config_path:
+        with open(config_path, "w") as f:
+            cred_mysql_db_cfg.write(f)
+    return cred_mysql_db_cfg
