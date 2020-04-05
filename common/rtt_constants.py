@@ -153,3 +153,23 @@ class Backend(object):
 
     # Miscellaneous default settings here!
     NIST_MAIN_RESULT_DIR = "experiments/AlgorithmTesting"
+
+
+class RTTWeb:
+    WEB_REPO = 'https://github.com/crocs-muni/RTTWebInterface.git'
+    WEB_REPO_PH4 = 'https://github.com/ph4r05/RTTWebInterface.git'
+    APACHE_CONFIG = 'files/apache_http_config.conf'
+    RTT_WEB_PATH = '/home/RTTWebInterface'
+    RTT_WEB_ENV = 'RTTWebInterfaceEnv'
+    RTT_WEB_SUBMIT_EXP = 'submit_experiment_script'
+    RTT_WEB_CREDENTIALS = 'credentials'
+    RTT_WEB_CREDENTIALS_SECRET_KEY = 'secret_key'
+    SSH_CREDENTIALS_FILE = "storage_ssh_cred.ini"
+    SSH_CREDENTIALS_KEY = "storage_ssh_key"
+    MYSQL_CREDENTIALS_FILE = "db_mysql_cred.ini"
+    MYSQL_RTT_USER = "rtt_web"
+    MYSQL_RTT_CONFIG = "db_mysql_cred.ini"
+    MYSQL_RTT_CONFIG2 = "rtt_db_cred.ini"
+    MYSQL_USER = "django_rtt_user"
+    MYSQL_DB = "django_rtt"
+    WEB_DB_CONFIG = "default_db_config.ini"
