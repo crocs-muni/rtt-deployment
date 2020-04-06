@@ -283,11 +283,13 @@ def submit_experiment_build(cdir=None):
         exec_sys_call_check("pyinstaller -F {}".format(Frontend.SUBMIT_EXPERIMENT_SCRIPT))
         shutil.move("dist/{}".format(submit_exp_base_name),
                     Frontend.SUBMIT_EXPERIMENT_BINARY)
+        res = os.path.abspath(Frontend.SUBMIT_EXPERIMENT_BINARY)
         chmod_chown(Frontend.SUBMIT_EXPERIMENT_BINARY, 0o2775, grp=Frontend.RTT_ADMIN_GROUP)
         shutil.rmtree("dist")
         shutil.rmtree("build")
         shutil.rmtree("__pycache__")
         os.remove("{}.spec".format(submit_exp_base_name))
+        return res
     finally:
         os.chdir(current_dir)
 

@@ -236,7 +236,8 @@ def main():
         ])
 
         os.chdir(Frontend.CHROOT_RTT_FILES)
-        submit_experiment_deploy(Frontend.CHROOT_RTT_FILES)
+        submit_bin = submit_experiment_deploy(Frontend.CHROOT_RTT_FILES)
+        os.symlink(submit_bin, os.path.join('/usr/bin', Frontend.SUBMIT_EXPERIMENT_BINARY))
 
         # CryptoStreams
         cryptostreams_complete_deploy(ph4=args.ph4)
