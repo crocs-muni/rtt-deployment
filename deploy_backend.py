@@ -3,7 +3,9 @@
 import configparser
 import json
 import shutil
+import time
 import subprocess
+import hashlib
 import argparse
 import traceback
 from os.path import join
@@ -79,6 +81,14 @@ def main():
         Backend.rtt_files_dir = get_no_empty(deploy_cfg, backend_sec, "RTT-Files-dir")
         Backend.exec_max_tests = get_no_empty(deploy_cfg, backend_sec, "Maximum-parallel-tests")
         Backend.exec_test_timeout = get_no_empty(deploy_cfg, backend_sec, "Maximum-seconds-per-test")
+        Backend.backend_id = deploy_cfg.get(backend_sec, "backend-id", fallback=None)
+        Backend.backend_name = deploy_cfg.get(backend_sec, "backend-name", fallback=backend_sec)
+        Backend.backend_loc = deploy_cfg.get(backend_sec, "backend-loc", fallback='')
+        Backend.backend_longterm = deploy_cfg.get(backend_sec, "backend-longterm", fallback=1)
+        Backend.backend_aux = deploy_cfg.get(backend_sec, "backend-aux", fallback='{}')
+        Backend.log_dir = deploy_cfg.get(backend_sec, "log-dir", fallback=None)
+        if not Backend.backend_id:
+            Backend.backend_id = hashlib.md5(str(time.time()).encode('utf8')).hexdigest()
 
         Database.address = get_no_empty(deploy_cfg, "Database", "IPv4-Address")
         Database.mysql_port = get_no_empty(deploy_cfg, "Database", "MySQL-port")
@@ -403,6 +413,16 @@ def main():
         backend_ini_cfg.set("Local-cache", "Config-directory", Backend.cache_conf_dir)
         backend_ini_cfg.add_section("Backend")
         backend_ini_cfg.set("Backend", "Sender-email", Backend.sender_email)
+        backend_ini_cfg.set("Backend", "Maximum-seconds-per-test", Backend.exec_test_timeout)
+        backend_ini_cfg.set("Backend", "Maximum-parallel-tests", Backend.exec_max_tests)
+        backend_ini_cfg.set("Backend", "backend-id", Backend.backend_id)
+        backend_ini_cfg.set("Backend", "backend-name", Backend.backend_name)
+        backend_ini_cfg.set("Backend", "backend-loc", Backend.backend_loc)
+        backend_ini_cfg.set("Backend", "backend-longterm", Backend.backend_longterm)
+        backend_ini_cfg.set("Backend", "backend-aux", Backend.backend_aux)
+        if Backend.log_dir:
+            backend_ini_cfg.set("Backend", "log-dir", Backend.log_dir)
+
         backend_ini_cfg.add_section("Storage")
         backend_ini_cfg.set("Storage", "Address", Storage.address)
         backend_ini_cfg.set("Storage", "Port", Storage.ssh_port)
