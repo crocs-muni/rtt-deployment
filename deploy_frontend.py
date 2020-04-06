@@ -251,8 +251,8 @@ def main():
                              "Match Group {0}\n" \
                              "\tChrootDirectory {1}\n" \
                              "\tPasswordAuthentication yes\n" \
-                             "\tAllowTcpForwarding no\n" \
-                             "\tPermitTunnel no\n" \
+                             "\tAllowTcpForwarding yes\n" \
+                             "\tPermitTunnel yes\n" \
                              "\tX11Forwarding no\n" \
                              "\tAuthorizedKeysFile {1}{2}\n" \
                              "\n".format(Frontend.RTT_USER_GROUP, Frontend.rtt_users_chroot,

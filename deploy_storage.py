@@ -112,12 +112,13 @@ def main():
                             acc_codes=[0, 9])
 
         # Configuring ssh server
-        sshd_config_append = "\n\n\n\n" \
+        sshd_config_append = "\n\n" \
+                             "\tClientAliveInterval 120\n\n" \
                              "Match User {0}\n" \
                              "\tChrootDirectory {1}\n" \
                              "\tForceCommand internal-sftp\n" \
-                             "\tAllowTcpForwarding no\n" \
-                             "\tPermitTunnel no\n" \
+                             "\tAllowTcpForwarding yes\n" \
+                             "\tPermitTunnel yes\n" \
                              "\tX11Forwarding no\n" \
                              "\tAuthorizedKeysFile {1}{2}\n" \
                              "\tPasswordAuthentication no\n" \
