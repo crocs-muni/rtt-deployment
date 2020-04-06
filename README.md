@@ -29,7 +29,9 @@ docker exec $DOCKER_ID python3 deploy_backend.py 1  --config deployment_settings
 # To get shell:
 docker exec -it $DOCKER_ID /bin/bash
 
-# Create django user
+# Access http://127.0.0.1:80 on host, default admin credentials are admin:admin
+
+# Create django user - another one. Can be done also via web interface.
 cd /home/RTTWebInterface
 ./RTTWebInterfaceEnv/bin/python manage.py createsuperuser
 ```
