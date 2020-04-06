@@ -165,7 +165,7 @@ def main():
         rtt_ssh_pkey = os.path.join(credsdir, RTTWeb.SSH_CREDENTIALS_KEY)
         key_pwd = get_rnd_pwd()
         exec_sys_call_check("ssh-keygen -q -b 2048 -t rsa -N {} -f {}".format(key_pwd, rtt_ssh_pkey))
-        chmod_chown(rtt_ssh_pkey, 0o640, own=wusr, grp=wgrp)
+        chmod_chown(rtt_ssh_pkey, 0o600, own=wusr, grp=wgrp)
         chmod_chown(rtt_ssh_pkey + ".pub", 0o640, own=wusr, grp=wgrp)
         with open(rtt_ssh_pkey + ".pub") as f:
             pub_key = f.read().rstrip()

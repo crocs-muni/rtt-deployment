@@ -461,7 +461,7 @@ def main():
         else:
             exec_sys_call_check("ssh-keygen -q -b 2048 -t rsa -N {} -f {}"
                                 .format(key_pwd, Backend.ssh_store_pkey))
-        chmod_chown(Backend.ssh_store_pkey, 0o660, grp=wgrp)
+        chmod_chown(Backend.ssh_store_pkey, 0o600, grp=wgrp)
         chmod_chown(Backend.ssh_store_pubkey, 0o660, grp=wgrp)
         with open(Backend.ssh_store_pubkey) as f:
             pub_key = f.read().rstrip()
