@@ -441,14 +441,14 @@ def main():
             register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                              Backend.MYSQL_BACKEND_USER, db_pwd, db_addr_from,
                              Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
-                             priv_select=True, priv_insert=True, priv_update=True,
+                             priv_select=True, priv_insert=True, priv_update=True, priv_create=True,
                              db_def_passwd=db_def_passwd, db_no_pass=args.local_db)
 
         else:
             sql = get_db_reg_command(username=Database.MYSQL_ROOT_USERNAME, password=None,
                                      db_name=Database.MYSQL_DB_NAME, reg_name=Backend.MYSQL_BACKEND_USER,
                                      reg_address=db_addr_from, reg_pwd=db_pwd,
-                                     priv_select=True, priv_insert=True, priv_update=True,
+                                     priv_select=True, priv_insert=True, priv_update=True, priv_create=True,
                                      db_host=Database.address, db_port=Database.ssh_port)
             post_install_info.append('* DB user not registered to the DB server. Make sure the following user:password has access: ')
             post_install_info.append(sql + '\n')
