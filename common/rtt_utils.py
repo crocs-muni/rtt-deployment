@@ -4,7 +4,7 @@ import logging
 import signal
 import shutil
 import hashlib
-from filelock import Timeout, FileLock
+from filelock import Timeout, FileLock, SoftFileLock
 
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ class FileLockerError(Exception):
 
 
 class FileLocker(object):
-    def __init__(self, path, acquire_timeout=60*60, lock_timeout=10, expire=120):
+    def __init__(self, path, acquire_timeout=60*60, lock_timeout=15, expire=120):
         self.path = path
         self.mlock_path = self.path + '.2'
 
@@ -101,7 +101,7 @@ class FileLocker(object):
         self.lock_timeout = lock_timeout
         self.acquire_timeout = acquire_timeout
 
-        self.primary_locker = FileLock(self.path, self.lock_timeout)
+        self.primary_locker = SoftFileLock(self.path, self.lock_timeout)
 
     def touch(self):
         try:
@@ -135,6 +135,10 @@ class FileLocker(object):
 
     def force_release(self):
         self.primary_locker.release(force=True)
+        try:
+            os.remove(self.path)
+        except OSError:
+            pass
 
     def acquire_try_once(self, _depth=0):
         if _depth > 0:
