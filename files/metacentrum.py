@@ -30,7 +30,7 @@ pyenv local 3.7.1
 
 cd "${BASEDR}"
 # set -o pipefail
-exec stdbuf -eL $HMDIR/.pyenv/versions/3.7.1/bin/python \\
+stdbuf -eL $HMDIR/.pyenv/versions/3.7.1/bin/python \\
   ./run_jobs.py $BASEDR/backend.ini \\
   --forwarded-mysql 1 \\
   --deactivate 1 \\
@@ -44,11 +44,12 @@ exec stdbuf -eL $HMDIR/.pyenv/versions/3.7.1/bin/python \\
   --pbspro \\
   --data-to-scratch \\
   2> {{{LOG_ERR}}} > {{{LOG_OUT}}}
-  
+RES=$?
+
 # Copy logs back to FS
 [[ -n "${SCRATCHDIR}" ]] && cp {{{LOG_ERR}}} {{{PERM_LOG_ERR}}}
 [[ -n "${SCRATCHDIR}" ]] && cp {{{LOG_OUT}}} {{{PERM_LOG_OUT}}}
-
+exit $RES
 """
 
 """
