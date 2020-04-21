@@ -42,7 +42,7 @@ stdbuf -eL $HMDIR/.pyenv/versions/3.7.1/bin/python \\
   --run-time {{{RUN_TIME}}} \\
   --job-time {{{JOB_TIME}}} \\
   --pbspro \\
-  --data-to-scratch \\
+  --data-to-scratch {{{OTHER_PARAMS}}} \\
   2> {{{LOG_ERR}}} > {{{LOG_OUT}}}
 RES=$?
 
@@ -97,6 +97,9 @@ class JobGenerator:
             perm_log_out = os.path.abspath(os.path.join(log_dir, 'logo-%s.log' % worker_file_base))
             log_err = os.path.join('${SCRATCHDIR}', 'loge-%s.log' % worker_file_base) if self.args.scratch else perm_log_err
             log_out = os.path.join('${SCRATCHDIR}', 'logo-%s.log' % worker_file_base) if self.args.scratch else perm_log_out
+            other_params = ""
+            if idx + 1 == self.args.num and self.args.cleanup_last:
+                other_params = " --cleanup-only 1  --clean-cache 1 --clean-log 1 "
 
             job_data = JOB_TEMPLATE
             job_data = job_data.replace('{{{STORAGE_ROOT}}}', storage_path)
@@ -109,6 +112,7 @@ class JobGenerator:
             job_data = job_data.replace('{{{LOG_ERR}}}', log_err)
             job_data = job_data.replace('{{{LOG_OUT}}}', log_out)
             job_data = job_data.replace('{{{RTT_PARALLEL}}}', '%s' % (self.args.qsub_ncpu - 1))
+            job_data = job_data.replace('{{{OTHER_PARAMS}}}', '%s' % (other_params))
 
             if '{{{' in job_data:
                 raise ValueError('Missed placeholder')
@@ -203,6 +207,9 @@ class JobGenerator:
 
         parser.add_argument('--enqueue', dest='enqueue', action='store_const', const=True, default=False,
                             help='Enqueues the generated batch via qsub after job finishes')
+
+        parser.add_argument('--cleanup-last', dest='cleanup_last', default=1, type=int,
+                            help='The last job just cleans up the cache')
 
         self.args = parser.parse_args()
         self.work()
