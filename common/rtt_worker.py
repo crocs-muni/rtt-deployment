@@ -218,7 +218,7 @@ class AsyncRunner:
         self.using_stderr_cap = self.stderr is None
         self.feeder = Feeder()
 
-        logger.info("Starting command %s in %s" % (cmd, self.cwd))
+        logger.debug("Starting command %s in %s" % (cmd, self.cwd))
 
         run_args = {}
         if self.preexec_setgrp:
@@ -276,7 +276,7 @@ class AsyncRunner:
                 process_line(line, is_err)
 
             if not finish and nlines > 1:
-                dst_cur[0] = lines[-1] or ""  # here if no lines....
+                dst_cur[0] = lines[-1] or ""
 
             if finish:
                 cline = dst_cur[0] if nlines == 1 else lines[-1]
@@ -287,7 +287,7 @@ class AsyncRunner:
             while len(p.commands) == 0:
                 time.sleep(0.15)
 
-            logger.info("Program started, progs: %s" % len(p.commands))
+            logger.debug("Program started, progs: %s" % len(p.commands))
             if p.commands[0] is None:
                 self.is_running = False
                 self.was_running = True
@@ -302,30 +302,29 @@ class AsyncRunner:
             while p.commands[0] and p.commands[0].returncode is None:
                 if self.using_stdout_cap:
                     out = p.stdout.read(-1, False)
-                    if out:
-                        add_output([out])
+                    add_output([out], is_err=False)
 
                 if self.using_stderr_cap:
                     err = p.stderr.read(-1, False)
-                    if err:
-                        add_output([err], True)
+                    add_output([err], is_err=True)
 
                 if self.on_tick:
                     self.on_tick(self)
 
                 p.commands[0].poll()
                 if self.terminating and p.commands[0].returncode is None:
-                    logger.info("Terminating by sigint %s" % p.commands[0])
+                    logger.debug("Terminating by sigint %s" % p.commands[0])
                     sarge_sigint(p.commands[0], signal.SIGTERM)
                     sarge_sigint(p.commands[0], signal.SIGINT)
-                    logger.info("Sigint sent")
-                    logger.info("Process closed")
+                    logger.debug("Sigint sent")
+                    logger.debug("Process closed")
 
-                if (self.using_stdout_cap and not out) or (self.using_stderr_cap and err):
+                # If there is data, consume it right away.
+                if (self.using_stdout_cap and out) or (self.using_stderr_cap and err):
                     continue
-                time.sleep(0.1)
+                time.sleep(0.15)
 
-            logger.info("Runner while ended")
+            logger.debug("Runner while ended")
             p.wait()
             self.ret_code = p.commands[0].returncode if p.commands[0] else -1
 
@@ -341,16 +340,16 @@ class AsyncRunner:
             self.is_running = False
             self.on_change()
 
-            logger.info("Program ended with code: %s" % self.ret_code)
-            logger.info("Command: %s" % cmd)
+            logger.debug("Program ended with code: %s" % self.ret_code)
+            logger.debug("Command: %s" % cmd)
 
             if self.log_out_after:
-                logger.info("Std out: %s" % "\n".join(self.out_acc))
-                logger.info("Error out: %s" % "\n".join(self.err_acc))
+                logger.debug("Std out: %s" % "\n".join(self.out_acc))
+                logger.debug("Error out: %s" % "\n".join(self.err_acc))
 
         except Exception as e:
             self.is_running = False
-            logger.error("Exception in async runner: %s" % (e,), exc_info=e)
+            logger.error("Exception in async runner: %s" % (e,))
 
         finally:
             self.was_running = True
