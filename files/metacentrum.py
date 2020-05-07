@@ -111,7 +111,7 @@ class JobGenerator:
             job_data = job_data.replace('{{{PERM_LOG_OUT}}}', perm_log_out)
             job_data = job_data.replace('{{{LOG_ERR}}}', log_err)
             job_data = job_data.replace('{{{LOG_OUT}}}', log_out)
-            job_data = job_data.replace('{{{RTT_PARALLEL}}}', '%s' % (self.args.qsub_ncpu - 1))
+            job_data = job_data.replace('{{{RTT_PARALLEL}}}', '%s' % (max(1, self.args.qsub_ncpu - self.args.qsub_ncpu_mgmt)))
             job_data = job_data.replace('{{{OTHER_PARAMS}}}', '%s' % (other_params))
 
             if '{{{' in job_data:
@@ -134,6 +134,10 @@ class JobGenerator:
                 qsub_args.append('cl_%s=True' % self.args.cluster)
             if self.args.scratch:
                 qsub_args.append('scratch_local=%smb' % self.args.scratch_size)
+            if self.args.qsub_debian9:
+                qsub_args.append('debian9=True')
+            if self.args.qsub_args:
+                qsub_args.append(self.args.qsub_args)
 
             walltime = '%02d:00:00' % self.args.hr_job
             nprocs = self.args.qsub_ncpu
@@ -172,14 +176,23 @@ class JobGenerator:
         parser.add_argument('--brno', dest='brno', action='store_const', const=True, default=False,
                             help='qsub: Enqueue on Brno clusters')
 
+        parser.add_argument('--debian9', dest='qsub_debian9', action='store_const', const=True, default=False,
+                            help='qsub: Use debian9 machines')
+
         parser.add_argument('--cluster', dest='cluster', default=None,
                             help='qsub: Enqueue on specific cluster name, e.g., brno, elixir')
 
         parser.add_argument('--qsub-ncpu', dest='qsub_ncpu', default=2, type=int,
                             help='qsub:  Number of processors to allocate for a job')
 
+        parser.add_argument('--qsub-ncpu-mgmt', dest='qsub_ncpu_mgmt', default=1, type=int,
+                            help='qsub:  Number of processors to allocate for management job (1 or 0)')
+
         parser.add_argument('--qsub-ram', dest='qsub_ram', default=4, type=int,
                             help='qsub:  RAM to allocate in GB')
+
+        parser.add_argument('--qsub-args', dest='qsub_args', default='',
+                            help='qsub:  Additional arguments')
 
         parser.add_argument('--test-time', dest='test_time', default=60*60, type=int,
                             help='Number of seconds the single test will run (max)')
