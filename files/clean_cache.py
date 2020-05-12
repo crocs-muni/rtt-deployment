@@ -12,9 +12,17 @@
 import os
 import configparser
 import sys
+import logging
+import coloredlogs
 from common.clilogging import *
 from common.rtt_db_conn import *
 from common.rtt_deploy_utils import *
+from common import rtt_utils
+from common import rtt_constants
+
+
+logger = logging.getLogger(__name__)
+
 
 ################################
 # Global variables declaration #
@@ -32,29 +40,29 @@ def delete_cache_files(exp_id):
     if os.path.exists(cache_data_file):
         print_info("Deleting file {}".format(cache_data_file))
         os.remove(cache_data_file)
+        for assoc in rtt_utils.get_associated_files(cache_data_file):
+            rtt_utils.try_remove(assoc)
     else:
         print_info("File was already removed: {}".format(cache_data_file))
 
     if os.path.exists(cache_config_file):
         print_info("Deleting file {}".format(cache_config_file))
         os.remove(cache_config_file)
+        for assoc in rtt_utils.get_associated_files(cache_config_file):
+            rtt_utils.try_remove(assoc)
     else:
         print_info("File was already removed: {}".format(cache_config_file))
 
 
-#################
-# MAIN FUNCTION #
-#################
-def main():
+def get_rtt_root_dir(config_dir):
+    config_els = config_dir.split(os.sep)
+    base_els = rtt_constants.Backend.CACHE_CONFIG_DIR.split(os.sep)
+    return os.sep.join(config_els[:-1 * len(base_els)])
+
+
+def clean_caches(main_cfg_file, mysql_params=None):
     global cache_data_dir
     global cache_config_dir
-
-    # Get path to main config from console
-    if len(sys.argv) != 2:
-        print_info("[USAGE] {} <path-to-main-config-file>".format(sys.argv[0]))
-        sys.exit(1)
-
-    main_cfg_file = sys.argv[1]
 
     ###################################
     # Reading configuration from file #
@@ -66,21 +74,29 @@ def main():
         if len(main_cfg.sections()) == 0:
             print_error("Can't read configuration: {}".format(main_cfg_file))
             sys.exit(1)
-    
+
         cache_data_dir = get_no_empty(main_cfg, 'Local-cache', 'Data-directory')
         cache_config_dir = get_no_empty(main_cfg, 'Local-cache', 'Config-directory')
     except BaseException as e:
         print_error("Configuration file: {}".format(e))
         sys.exit(1)
 
-    db = create_mysql_db_conn(main_cfg)
+    rtt_root_dir = get_rtt_root_dir(cache_config_dir)
+    rtt_log_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.EXEC_LOGS_TOP_DIR)
+    rtt_work_dir = os.path.join(rtt_root_dir, rtt_constants.Backend.RTT_EXECUTION_DIR, 'workers')
+
+    mysql_params = mysql_params if mysql_params else \
+        mysql_load_params(main_cfg)
+    db = connect_mysql_db(mysql_params)
     cursor = db.cursor()
 
     try:
         for data_file in os.listdir(cache_data_dir):
+            if not data_file.endswith('.bin'):
+                continue
             exp_id = int(os.path.splitext(os.path.basename(data_file))[0])
             cursor.execute("SELECT status FROM experiments WHERE id=%s",
-                           (exp_id, ))
+                           (exp_id,))
 
             if cursor.rowcount == 1:
                 row = cursor.fetchone()
@@ -96,8 +112,26 @@ def main():
         cursor.close()
         db.close()
 
+    rtt_utils.try_clean_logs(rtt_log_dir)
+    rtt_utils.try_clean_workers(rtt_work_dir)
+
+
+#################
+# MAIN FUNCTION #
+#################
+def main():
+    # Get path to main config from console
+    if len(sys.argv) != 2:
+        print_info("[USAGE] {} <path-to-main-config-file>".format(sys.argv[0]))
+        sys.exit(1)
+
+    main_cfg_file = sys.argv[1]
+    clean_caches(main_cfg_file)
+
 
 if __name__ == "__main__":
+    coloredlogs.CHROOT_FILES = []
+    coloredlogs.install(level=logging.DEBUG, use_chroot=False)
     print_start("clean-cache")
     main()
     print_end()

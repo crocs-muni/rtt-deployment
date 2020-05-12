@@ -5,16 +5,35 @@
 # It is meant to be executed by user.           #
 #################################################
 
+# How to compile the 'submit_experiment' binary:
+
+"""
+cd /opt/rtt-submit-experiment
+/bin/rm -rf build/ dist/
+pyinstaller -F submit_experiment.py
+mv dist/submit_experiment .
+chgrp rtt_admin submit_experiment
+chmod g+s submit_experiment
+cp submit_experiment /home/RTTWebInterface/submit_experiment_script/submit_experiment
+chgrp rtt_admin /home/RTTWebInterface/submit_experiment_script/submit_experiment
+chmod g+s /home/RTTWebInterface/submit_experiment_script/submit_experiment
+"""
+
 import configparser
 import MySQLdb
 import os
 import sys
 import argparse
 import hashlib
+import logging
 import paramiko
 from common.clilogging import *
 from common.rtt_db_conn import *
 from common.rtt_sftp_conn import *
+
+
+logger = logging.getLogger(__name__)
+
 
 ################################
 # Global variables declaration #
@@ -29,7 +48,10 @@ battery_flags = {'nist_sts':             1,
                  'tu01_bigcrush':        16,
                  'tu01_rabbit':          32,
                  'tu01_alphabit':        64,
-                 'tu01_blockalphabit':   128}
+                 'tu01_blockalphabit':   128,
+                 'booltest_1':           256,
+                 'booltest_2':           512,
+                 }
 
 storage_data_dir = ""
 storage_config_dir = ""
@@ -77,6 +99,10 @@ def parse_arguments():
                         help="switch inclusion of TestU01 Alphabit battery")
     parser.add_argument("--tu01_blockalphabit", action="store_true",
                         help="switch inclusion of TestU01 Block Alphabit battery")
+    parser.add_argument("--booltest-1", dest='booltest1', action="store_true",
+                        help="switch inclusion of BoolTest1 battery")
+    parser.add_argument("--booltest-2", dest='booltest2', action="store_true",
+                        help="switch inclusion of BoolTest2 battery")
     return parser.parse_args()
 
 
@@ -101,6 +127,10 @@ def pick_batteries(args):
         picked_batts ^= battery_flags['tu01_alphabit']
     if args.tu01_blockalphabit:
         picked_batts ^= battery_flags['tu01_blockalphabit']
+    if args.booltest1:
+        picked_batts ^= battery_flags['booltest_1']
+    if args.booltest2:
+        picked_batts ^= battery_flags['booltest_2']
     return picked_batts
 
 
@@ -112,7 +142,20 @@ def upload_data(local_data_file, local_config_file, experiment_id, sftp):
     sftp.put(local_data_file, storage_data_file)
     sftp.put(local_config_file, storage_config_file)
     print_info("File transfer complete.")
-    
+
+
+def try_execute(fnc, attempts=40, msg=""):
+    for att in range(attempts):
+        try:
+            fnc()
+            return
+
+        except Exception as e:
+            logger.error("Exception in executing function, %s, att=%s, msg=%s" % (e, att, msg))
+            if att - 1 == attempts:
+                raise
+    raise ValueError("Should not happen, failstop")
+
 
 #################
 # MAIN FUNCTION #
@@ -181,8 +224,10 @@ def main():
         sql_ins_experiment = "INSERT INTO experiments " \
                              "(name, author_email, config_file, data_file, data_file_sha256) " \
                              "VALUES(%s,%s,%s,%s,%s)"
-        cursor.execute(sql_ins_experiment, (args.name, args.email, args.cfg, args.file, 
-                                            sha256file(args.file)))
+
+        try_execute(lambda: cursor.execute(sql_ins_experiment, (args.name, args.email, args.cfg, args.file, sha256file(args.file))),
+                    msg="Experiment insert %s" % args.file)
+
         experiment_id = cursor.lastrowid
         print_info("Created new experiment with id {}".format(experiment_id))
         # Uploading data to storage server
@@ -193,7 +238,9 @@ def main():
                       "VALUES(%s,%s)"
         for key in battery_flags:
             if picked_batts & battery_flags[key]:
-                cursor.execute(sql_ins_job, (key, experiment_id))
+                try_execute(lambda: cursor.execute(sql_ins_job, (key, experiment_id)),
+                            msg="Job insert, %s, %s" % (args.file, key))
+
                 print_info("Created job with id {}.".format(cursor.lastrowid))
         
         # Final commit - the jobs and experiment will be now visible

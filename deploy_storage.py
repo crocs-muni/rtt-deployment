@@ -1,17 +1,30 @@
 #! /usr/bin/python3
 
 import configparser
-import shutil
+import argparse
+import traceback
 from common.rtt_deploy_utils import *
 from common.rtt_constants import *
 
 ################################
 # Global variables declaration #
 ################################
-deploy_cfg_file = "deployment_settings.ini"
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Storage deployment')
+    parser.add_argument('--docker', dest='docker', action='store_const', const=True, default=False,
+                        help='Docker deployment')
+    parser.add_argument('--local-db', dest='local_db', action='store_const', const=True, default=False,
+                        help='DB server is on the same machine')
+    parser.add_argument('--mysql-pass', dest='mysql_pass', action='store_const', const=True, default=False,
+                        help='DB password to use')
+    parser.add_argument('--mysql-pass-file', dest='mysql_pass_file', action='store_const', const=True, default=False,
+                        help='DB password file to use')
+    parser.add_argument('--config', dest='config', default='deployment_settings.ini',
+                        help='Path to deployment_settings.ini')
+    args = parser.parse_args()
+    deploy_cfg_file = args.config
     deploy_cfg = configparser.ConfigParser()
 
     try:
@@ -48,7 +61,6 @@ def main():
             Storage.CREDENTIALS_DIR
         })
         check_files_exists({
-            Storage.ssh_config,
             CommonConst.STORAGE_CLEAN_CACHE
         })
     except AssertionError as e:
@@ -86,6 +98,9 @@ def main():
         os.path.join(Storage.rtt_credentials_dir, Storage.MYSQL_CREDENTIALS_FILE)
 
     try:
+        install_debian_pkgs(["acl", "sudo", "wget", "unzip", "rsync", "cron", "openssh-client"])
+        install_debian_pkg("openssh-server")
+
         # Creating sftp jail for account
         # Adding rtt-admin group that is intended to manage
         # directories and files related to rtt without root access
@@ -97,12 +112,13 @@ def main():
                             acc_codes=[0, 9])
 
         # Configuring ssh server
-        sshd_config_append = "\n\n\n\n" \
+        sshd_config_append = "\n\n" \
+                             "\tClientAliveInterval 120\n\n" \
                              "Match User {0}\n" \
                              "\tChrootDirectory {1}\n" \
                              "\tForceCommand internal-sftp\n" \
-                             "\tAllowTcpForwarding no\n" \
-                             "\tPermitTunnel no\n" \
+                             "\tAllowTcpForwarding yes\n" \
+                             "\tPermitTunnel yes\n" \
                              "\tX11Forwarding no\n" \
                              "\tAuthorizedKeysFile {1}{2}\n" \
                              "\tPasswordAuthentication no\n" \
@@ -113,7 +129,7 @@ def main():
         with open(Storage.ssh_config, "a") as f:
             f.write(sshd_config_append)
 
-        exec_sys_call_check("service sshd restart")
+        exec_sys_call_check("service ssh restart")
 
         # Creating sftp jail for accessing storage
         create_dir(Storage.acc_chroot, 0o755)
@@ -167,38 +183,41 @@ def main():
 
         # Creating credentials file for database access
         cred_db_password = get_rnd_pwd()
-        cred_cfg = configparser.ConfigParser()
-        cred_cfg.add_section("Credentials")
-        cred_cfg.set("Credentials", "Username", Storage.MYSQL_STORAGE_USER)
-        cred_cfg.set("Credentials", "Password", cred_db_password)
-        with open(Storage.rtt_file_mysql_cred, "w") as f:
-            cred_cfg.write(f)
+        write_db_credentials(Storage.MYSQL_STORAGE_USER, cred_db_password, Storage.rtt_file_mysql_cred)
 
         # Installing required packages
-        install_debian_pkg("libmysqlclient-dev")
-        install_debian_pkg("python3-pip")
-        install_debian_pkg("python3-cryptography")
-        install_debian_pkg("python3-paramiko")
+        install_debian_pkg("libmysqlcppconn-dev")
+        install_debian_pkg_at_least_one(["default-libmysqlclient-dev", "libmysqlclient-dev"])
+        install_debian_pkgs(["python3-pip", "python3-cryptography", "python3-paramiko"])
 
+        install_python_pkg("pip", no_cache=False)
         install_python_pkg("mysqlclient")
 
         # This can be done only after installing cryptography and paramiko
         from common.rtt_registration import register_db_user
 
+        db_def_passwd = get_mysql_password_args(args)
         register_db_user(Database.ssh_root_user, Database.address, Database.ssh_port,
                          Storage.MYSQL_STORAGE_USER, cred_db_password, Storage.address,
                          Database.MYSQL_ROOT_USERNAME, Database.MYSQL_DB_NAME,
-                         priv_select=True)
+                         priv_select=True,
+                         db_def_passwd=db_def_passwd, db_no_pass=args.local_db)
 
         # Adding new job to cron - cache cleaning script
+        install_debian_pkg("cron")
         add_cron_job(Storage.rtt_file_clean_cache,
                      Storage.rtt_file_store_ini,
                      Storage.rtt_file_clean_cache_log)
+        exec_sys_call_check("service cron restart")
+        if not args.docker:
+            service_enable("ssh.service")
+            service_enable("cron.service")
 
         # All configured here.
 
     except BaseException as e:
         print_error("{}. Fix error and run the script again.".format(e))
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

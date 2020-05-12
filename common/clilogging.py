@@ -1,10 +1,13 @@
 import time
+import logging
+logger = logging.getLogger(__name__)
 
 
 def print_time_mess(mess):
     tm = time.localtime()
     print("[{}-{:02d}-{:02d}, {:02d}:{:02d}:{:02d}] {}"
           .format(tm[0], tm[1], tm[2], tm[3], tm[4], tm[5], mess))
+    logger.info(mess)
 
 
 def print_start(app_name):

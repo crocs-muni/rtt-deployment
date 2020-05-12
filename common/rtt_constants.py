@@ -10,6 +10,15 @@ class CommonConst(object):
     FRONTEND_ADD_USER_SCRIPT = "files/add_rtt_user.py"
     BACKEND_RUN_JOBS_SCRIPT = "files/run_jobs.py"
     BACKEND_CLEAN_CACHE_SCRIPT = "files/clean_cache.py"
+    PASSWD_MYSQL = "/root/mysql-pass.txt"
+    CONF_MYSQL = "/root/.my.cnf"
+    USR_SRC = "/usr/src"
+
+    CRYPTOSTREAMS_SRC_DIR = 'crypto-streams'
+    CRYPTOSTREAMS_REPO = 'https://github.com/crocs-muni/CryptoStreams.git'
+    CRYPTOSTREAMS_REPO_BRANCH = 'master'
+    CRYPTOSTREAMS_REPO_PH4 = 'https://github.com/ph4r05/eacirc-streams.git'
+    CRYPTOSTREAMS_REPO_BRANCH_PH4 = 'ph4'
 
 
 class Database(object):
@@ -17,6 +26,25 @@ class Database(object):
     # name of the database in create_rtt_tables.sql script. It is discouraged.
     MYSQL_DB_NAME = "rtt"
     MYSQL_ROOT_USERNAME = "root"
+
+    # noinspection SqlDialectInspection,SqlNoDataSourceInspection
+    SQL_FILE_SETUP = """
+# Make sure that NOBODY can access the server without a password
+UPDATE mysql.user SET Password=PASSWORD('{{{MYSQL_PASS}}}') WHERE User='root';
+# Kill the anonymous users
+DELETE FROM mysql.user WHERE User='';
+# disallow remote login for root
+DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+# Kill off the demo database
+DROP DATABASE IF EXISTS test;
+DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+# Make our changes take effect
+FLUSH PRIVILEGES;
+"""
+
+    SQL_CONFIG_FILE = """[client]
+password="{{{MYSQL_PASS}}}"
+"""
 
 
 class Storage(object):
@@ -53,7 +81,7 @@ class Frontend(object):
     SSH_DIR = ".ssh"
     AUTH_KEYS_FILE = "authorized_keys"
     FSTAB_FILE = "/etc/fstab"
-    CHROOT_DEBIAN_VERSION = "jessie"
+    CHROOT_DEBIAN_VERSION = "stretch"
 
 
 class Backend(object):
@@ -125,3 +153,23 @@ class Backend(object):
 
     # Miscellaneous default settings here!
     NIST_MAIN_RESULT_DIR = "experiments/AlgorithmTesting"
+
+
+class RTTWeb:
+    WEB_REPO = 'https://github.com/crocs-muni/RTTWebInterface.git'
+    WEB_REPO_PH4 = 'https://github.com/ph4r05/RTTWebInterface.git'
+    APACHE_CONFIG = 'files/apache_http_config.conf'
+    RTT_WEB_PATH = '/home/RTTWebInterface'
+    RTT_WEB_ENV = 'RTTWebInterfaceEnv'
+    RTT_WEB_SUBMIT_EXP = 'submit_experiment_script'
+    RTT_WEB_CREDENTIALS = 'credentials'
+    RTT_WEB_CREDENTIALS_SECRET_KEY = 'secret_key'
+    SSH_CREDENTIALS_FILE = "storage_ssh_cred.ini"
+    SSH_CREDENTIALS_KEY = "storage_ssh_key"
+    MYSQL_CREDENTIALS_FILE = "db_mysql_cred.ini"
+    MYSQL_RTT_USER = "rtt_web"
+    MYSQL_RTT_CONFIG = "db_mysql_cred.ini"
+    MYSQL_RTT_CONFIG2 = "rtt_db_cred.ini"
+    MYSQL_USER = "django_rtt_user"
+    MYSQL_DB = "django_rtt"
+    WEB_DB_CONFIG = "default_db_config.ini"
